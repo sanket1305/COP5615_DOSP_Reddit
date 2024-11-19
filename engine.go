@@ -2,161 +2,167 @@ package main
 
 import (
 	"fmt"
-	"sync"
+	"log"
+	"math/rand"
+	"time"
+
+	"github.com/asynkron/protoactor-go/actor"
 )
 
-type User struct {
+// Message types
+type RegisterUser struct {
+	Username string
+}
+type CreateSubreddit struct {
+	Name string
+}
+type JoinSubreddit struct {
+	UserID       string
+	SubredditName string
+}
+type PostInSubreddit struct {
+	UserID       string
+	SubredditName string
+	Content      string
+}
+type GetFeed struct {
+	SubredditName string
+}
+
+// User Actor
+type UserActor struct {
 	ID       string
 	Username string
 	Karma    int
 }
 
-type Post struct {
-	ID       string
-	UserID   string
-	Content  string
-	Upvotes  int
-	Downvotes int
-	Comments []*Comment
-}
-
-type Comment struct {
-	ID       string
-	UserID   string
-	Content  string
-	Upvotes  int
-	Downvotes int
-	Replies  []*Comment
-}
-
-type Subreddit struct {
-	Name    string
-	Members map[string]*User // Map of user IDs to Users
-	Posts   []*Post          // List of posts in the subreddit
-}
-
-type Engine struct {
-	mu         sync.Mutex // To manage concurrent access to data structures
-	Users      map[string]*User
-	Subreddits map[string]*Subreddit
-}
-
-func NewEngine() *Engine {
-	return &Engine{
-		Users:      make(map[string]*User),
-		Subreddits: make(map[string]*Subreddit),
+func (state *UserActor) Receive(ctx actor.Context) {
+	switch msg := ctx.Message().(type) {
+	case *RegisterUser:
+		state.Username = msg.Username
+		fmt.Printf("User %s registered.\n", state.Username)
 	}
 }
 
-// Register a new user.
-func (e *Engine) RegisterUser(username string) *User {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	user := &User{ID: username, Username: username}
-	e.Users[username] = user
-	fmt.Printf("User %s registered.\n", username)
-	return user
+// Subreddit Actor
+type SubredditActor struct {
+	Name  string
+	Posts []*PostActor // List of posts in the subreddit.
 }
 
-// Create a new subreddit.
-func (e *Engine) CreateSubreddit(name string) *Subreddit {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	subreddit := &Subreddit{Name: name, Members: make(map[string]*User)}
-	e.Subreddits[name] = subreddit
-	fmt.Printf("Subreddit %s created.\n", name)
-	return subreddit
+func (state *SubredditActor) Receive(ctx actor.Context) {
+	switch msg := ctx.Message().(type) {
+	case *CreateSubreddit:
+		state.Name = msg.Name
+		fmt.Printf("Subreddit %s created.\n", state.Name)
+	case *PostInSubreddit:
+		post := &PostActor{UserID: msg.UserID, Content: msg.Content}
+		state.Posts = append(state.Posts, post)
+		fmt.Printf("User %s posted in subreddit %s: %s\n", msg.UserID, state.Name, msg.Content)
+	case *GetFeed:
+		fmt.Printf("Fetching feed for subreddit %s\n", state.Name)
+		for _, post := range state.Posts {
+			fmt.Printf("Post by %s: %s\n", post.UserID, post.Content)
+		}
+	}
 }
 
-// Join a subreddit.
-func (e *Engine) JoinSubreddit(userID, subredditName string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	user, ok := e.Users[userID]
-	if !ok {
-		fmt.Printf("User %s not found.\n", userID)
-		return
-	}
-	subreddit, ok := e.Subreddits[subredditName]
-	if !ok {
-		fmt.Printf("Subreddit %s not found.\n", subredditName)
-		return
-	}
-	subreddit.Members[userID] = user
-	fmt.Printf("User %s joined subreddit %s.\n", userID, subredditName)
+// Post Actor (for simplicity, not making it a full actor here)
+type PostActor struct {
+	UserID  string
+	Content string
 }
 
-// Leave a subreddit.
-func (e *Engine) LeaveSubreddit(userID, subredditName string) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	subreddit, ok := e.Subreddits[subredditName]
-	if !ok {
-		fmt.Printf("Subreddit %s not found.\n", subredditName)
-		return
-	}
-	delete(subreddit.Members, userID)
-	fmt.Printf("User %s left subreddit %s.\n", userID, subredditName)
+// Engine Actor (Orchestrator)
+type EngineActor struct {
+	users      map[string]*actor.PID
+	subreddits map[string]*actor.PID
 }
 
-// Post in a subreddit.
-func (e *Engine) PostInSubreddit(userID, subredditName, content string) *Post {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	user, ok := e.Users[userID]
-	if !ok {
-		fmt.Printf("User %s not found.\n", userID)
-		return nil
+func NewEngineActor() *EngineActor {
+	return &EngineActor{
+		users:      make(map[string]*actor.PID),
+		subreddits: make(map[string]*actor.PID),
 	}
-	subreddit, ok := e.Subreddits[subredditName]
-	if !ok {
-		fmt.Printf("Subreddit %s not found.\n", subredditName)
-		return nil
-	}
-	post := &Post{ID: fmt.Sprintf("%d", len(subreddit.Posts)+1), UserID: user.ID, Content: content}
-	subreddit.Posts = append(subreddit.Posts, post)
-	fmt.Printf("User %s posted in subreddit %s: %s\n", user.Username, subreddit.Name, content)
-	return post
 }
 
-// Comment on a post.
-func (e *Engine) CommentOnPost(userID, postID, content string, post *Post) *Comment {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+func (state *EngineActor) Receive(ctx actor.Context) {
+	switch msg := ctx.Message().(type) {
 
-	comment := &Comment{ID: fmt.Sprintf("%d", len(post.Comments)+1), UserID: userID, Content: content}
-	post.Comments = append(post.Comments, comment)
-	fmt.Printf("User %s commented on post %s: %s\n", userID, post.ID, content)
-	return comment
+	case *RegisterUser:
+		userProps := actor.PropsFromProducer(func() actor.Actor { return &UserActor{ID: msg.Username} })
+		userPID := ctx.Spawn(userProps)
+		state.users[msg.Username] = userPID
+
+	case *CreateSubreddit:
+		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name} })
+		subredditPID := ctx.Spawn(subredditProps)
+		state.subreddits[msg.Name] = subredditPID
+
+	case *JoinSubreddit:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			ctx.Send(subredditPID, &JoinSubreddit{UserID: msg.UserID})
+			fmt.Printf("User %s joined subreddit %s.\n", msg.UserID, msg.SubredditName)
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+		}
+
+	case *PostInSubreddit:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			ctx.Send(subredditPID, &PostInSubreddit{UserID: msg.UserID, SubredditName: msg.SubredditName, Content: msg.Content})
+			fmt.Printf("User %s posted in subreddit %s.\n", msg.UserID, msg.SubredditName)
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+		}
+
+	case *GetFeed:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
+			fmt.Printf("Fetching feed for subreddit %s.\n", msg.SubredditName)
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+		}
+	default:
+		log.Println("Unknown message type received")
+	}
 }
 
-// Upvote or downvote a post.
-func (e *Engine) VoteOnPost(userID string, post *Post, upvote bool) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+// Simulator to simulate multiple users and actions
+func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUsers int) {
 
-	if upvote {
-		post.Upvotes++
-	} else {
-		post.Downvotes++
-	}
-	fmt.Printf("User %s voted on post %s. Upvotes: %d Downvotes: %d\n", userID, post.ID, post.Upvotes, post.Downvotes)
+	for i := 0; i < numUsers; i++ {
+        username := fmt.Sprintf("user%d", i+1)
+
+        // Register the user.
+        rootContext.Send(enginePID, &RegisterUser{Username: username})
+
+        // Simulate creating and joining subreddits.
+        subredditName := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from 5 subreddits.
+        rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
+        rootContext.Send(enginePID, &JoinSubreddit{UserID: username, SubredditName: subredditName})
+
+        // Simulate posting in the subreddit.
+        content := fmt.Sprintf("This is a post by %s in subreddit %s.", username, subredditName)
+        rootContext.Send(enginePID, &PostInSubreddit{UserID: username, SubredditName: subredditName, Content: content})
+
+        // Fetch the feed for the subreddit.
+        rootContext.Send(enginePID, &GetFeed{SubredditName: subredditName})
+
+        // Introduce a small delay to simulate real-time actions.
+        // time.Sleep(time.Millisecond * 500)
+    }
 }
 
-// Get feed of posts from a subreddit.
-func (e *Engine) GetFeed(subredditName string) []*Post {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+func main() {
 
-	subreddit, ok := e.Subreddits[subredditName]
-	if !ok {
-		fmt.Printf("Subreddit %s not found.\n", subredditName)
-		return nil
-	}
-	return subreddit.Posts // Return the list of posts in the subreddit.
+	system := actor.NewActorSystem() // Create an actor system.
+	rootContext := system.Root       // Get the root context from the system.
+
+	engineProps := actor.PropsFromProducer(func() actor.Actor { return NewEngineActor() })
+	enginePID := rootContext.Spawn(engineProps)
+
+    // Simulate 10 users interacting with the system.
+    simulateUsers(rootContext, enginePID, 10)
+
+	time.Sleep(5 * time.Second) // Give some time for messages to be processed.
 }
