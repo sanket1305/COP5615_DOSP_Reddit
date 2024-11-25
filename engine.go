@@ -3,7 +3,7 @@
 // Register Account (Done)
 // Create subreddit (Done)
 // Join subreddit (Done) added check for duplicate entries during simulation
-// Leave subreddit
+// Leave subreddit (Done) added check to verify if the pair exists
 // Post in subreddit
 // Comment in subreddit
 // 	Hierarchial view
@@ -58,6 +58,11 @@ type JoinSubreddit struct {
 	SubredditName string
 }
 
+type LeaveSubreddit struct {
+	UserID       string
+	SubredditName string
+}
+
 // user actor
 type UserActor struct {
 	ID       string
@@ -79,6 +84,21 @@ func (state *UserActor) Receive(ctx actor.Context) {
 			fmt.Printf("User %s joined subreddit %s.\n", state.ID, msg.SubredditName)
 			// fmt.Println(state.SubredditList)
 		}
+	
+	case *LeaveSubreddit:
+		currsubreddits := state.SubredditList
+		// fmt.Println("Before") // DEBUG
+		// fmt.Println(currsubreddits) // DEBUG
+		for i, v := range currsubreddits {
+			
+			if v == msg.SubredditName {
+				// Remove the element at index i
+				currsubreddits = append(currsubreddits[:i], currsubreddits[i+1:]...)
+			}
+		}
+		state.SubredditList = currsubreddits
+		// fmt.Println("After") // DEBUG
+		// fmt.Println(currsubreddits) // DEBUG
 	}
 }
 
@@ -100,7 +120,23 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 		if !contains(state.UserList, msg.UserID) {
 			state.UserList = append(state.UserList, msg.UserID)
 		}
+	
+	case *LeaveSubreddit:
+		currusers := state.UserList
+		// fmt.Println("Before") // DEBUG
+		// fmt.Println(currusers) // DEBUG
+		for i, v := range currusers {
+			
+			if v == msg.UserID {
+				// Remove the element at index i
+				currusers = append(currusers[:i], currusers[i+1:]...)
+			}
+		}
+		state.UserList = currusers
+		// fmt.Println("After")  // DEBUG
+		// fmt.Println(currusers)  // DEBUG
 	}
+
 }
 
 // Post Actor (for simplicity, not making it a full actor here)
@@ -149,6 +185,15 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		} else {
 			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
 		}
+	
+	case *LeaveSubreddit:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			user := state.users[msg.UserID]
+			ctx.Send(subredditPID, &LeaveSubreddit{UserID: msg.UserID})
+			ctx.Send(user, &LeaveSubreddit{SubredditName: msg.SubredditName})
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+		}
 
 	default:
 		log.Println("Unknown message type received")
@@ -193,6 +238,18 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 		}
 	}
 
+	// users leaves randomly
+	for i:= 0; i< 5; i++ {
+		username := fmt.Sprintf("user%d", rand.Intn(10)+1)
+		subredditname:= fmt.Sprintf("sub%d", rand.Intn(5)+1)
+
+		// time.Sleep(3 * time.Second)
+		// fmt.Println(username)
+		// fmt.Println(subredditname)
+
+		rootContext.Send(enginePID, &LeaveSubreddit{UserID: username, SubredditName: subredditname})
+	}
+
 }
 
 func main() {
@@ -210,5 +267,5 @@ func main() {
 
 	// delay main thread for some time,
 	// allow other processes to finish
-	time.Sleep(5 * time.Second) 
+	time.Sleep(8 * time.Second) 
 }
