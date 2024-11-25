@@ -1,10 +1,34 @@
+// to do
+
+// Register Account (Done)
+// Create subreddit
+// Join subreddit
+// Leave subreddit
+// Post in subreddit
+// Comment in subreddit
+// 	Hierarchial view
+// Upvote, Downvote, compute Karma
+// get feed of posts
+// get lists of direct messages; reply to direct messages
+
+// implement simulator
+// 	simulate as many users as you can (10 at start)
+// 	simulate periods of live connection and disconnection for users
+// 	simulate a zipf ditribution on the number of sub-reddit members.
+// 		for account with a lot of subscribers, increase the number of posts.
+// 		Make some of these messages re-posts
+
+// compute karma
+// for each upvote/downvote receoived +/-1
+// for each new post +5 karma
+
+
 package main
 
 import (
 	"fmt"
-	"log"
-	"math/rand"
 	"time"
+	"log"
 
 	"github.com/asynkron/protoactor-go/actor"
 )
@@ -13,29 +37,15 @@ import (
 type RegisterUser struct {
 	Username string
 }
-type CreateSubreddit struct {
-	Name string
-}
-type JoinSubreddit struct {
-	UserID       string
-	SubredditName string
-}
-type PostInSubreddit struct {
-	UserID       string
-	SubredditName string
-	Content      string
-}
-type GetFeed struct {
-	SubredditName string
-}
 
-// User Actor
+// user actor
 type UserActor struct {
 	ID       string
 	Username string
 	Karma    int
 }
 
+// behavior for user actor, which will act as listener
 func (state *UserActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *RegisterUser:
@@ -44,41 +54,13 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	}
 }
 
-// Subreddit Actor
-type SubredditActor struct {
-	Name  string
-	Posts []*PostActor // List of posts in the subreddit.
-}
-
-func (state *SubredditActor) Receive(ctx actor.Context) {
-	switch msg := ctx.Message().(type) {
-	case *CreateSubreddit:
-		state.Name = msg.Name
-		fmt.Printf("Subreddit %s created.\n", state.Name)
-	case *PostInSubreddit:
-		post := &PostActor{UserID: msg.UserID, Content: msg.Content}
-		state.Posts = append(state.Posts, post)
-		fmt.Printf("User %s posted in subreddit %s: %s\n", msg.UserID, state.Name, msg.Content)
-	case *GetFeed:
-		fmt.Printf("Fetching feed for subreddit %s\n", state.Name)
-		for _, post := range state.Posts {
-			fmt.Printf("Post by %s: %s\n", post.UserID, post.Content)
-		}
-	}
-}
-
-// Post Actor (for simplicity, not making it a full actor here)
-type PostActor struct {
-	UserID  string
-	Content string
-}
-
 // Engine Actor (Orchestrator)
 type EngineActor struct {
 	users      map[string]*actor.PID
 	subreddits map[string]*actor.PID
 }
 
+// function to return pointer to engine actor with empty map of users and subreddits
 func NewEngineActor() *EngineActor {
 	return &EngineActor{
 		users:      make(map[string]*actor.PID),
@@ -86,78 +68,51 @@ func NewEngineActor() *EngineActor {
 	}
 }
 
+// behaviour for engineActor, to listen for incoming messages
 func (state *EngineActor) Receive(ctx actor.Context) {
+	// checking msg type, based on msg struct
 	switch msg := ctx.Message().(type) {
 
 	case *RegisterUser:
 		userProps := actor.PropsFromProducer(func() actor.Actor { return &UserActor{ID: msg.Username} })
 		userPID := ctx.Spawn(userProps)
 		state.users[msg.Username] = userPID
-
-	case *CreateSubreddit:
-		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name} })
-		subredditPID := ctx.Spawn(subredditProps)
-		state.subreddits[msg.Name] = subredditPID
-
-	case *JoinSubreddit:
-		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
-			ctx.Send(subredditPID, &JoinSubreddit{UserID: msg.UserID})
-			fmt.Printf("User %s joined subreddit %s.\n", msg.UserID, msg.SubredditName)
-		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
-		}
-
-	case *PostInSubreddit:
-		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
-			ctx.Send(subredditPID, &PostInSubreddit{UserID: msg.UserID, SubredditName: msg.SubredditName, Content: msg.Content})
-			fmt.Printf("User %s posted in subreddit %s.\n", msg.UserID, msg.SubredditName)
-		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
-		}
-
-	case *GetFeed:
-		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
-			ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
-			fmt.Printf("Fetching feed for subreddit %s.\n", msg.SubredditName)
-		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
-		}
+		// fmt.Printf("User %s registered.\n", msg.Username)
 	default:
 		log.Println("Unknown message type received")
 	}
-}
+}		
 
-// Simulator to simulate multiple users and actions
+// function to simulate our reddit engine for multi-user scenario
 func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUsers int) {
 
+	//Approach:
+	// create 10 users (Done)
+	// create 5 subreddits
+	// for each user, use random function (5 times) and assign the user to rnadom subreedits among available ones
+	// run for loop for 20 times, make random posts by users in subreddits
+	// run for loop for 20 times, make random comments (non-hierarchial0)
+	// upvote 100 times, random posts
+	// downvote 100 times random posts
+	// make 2 users leave the subreddit
+	// get feed for all 5 subreddits
+
+	// creating 10 users
 	for i := 0; i < numUsers; i++ {
         username := fmt.Sprintf("user%d", i+1)
 
         // Register the user.
         rootContext.Send(enginePID, &RegisterUser{Username: username})
-
-        // Simulate creating and joining subreddits.
-        subredditName := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from 5 subreddits.
-        rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
-        rootContext.Send(enginePID, &JoinSubreddit{UserID: username, SubredditName: subredditName})
-
-        // Simulate posting in the subreddit.
-        content := fmt.Sprintf("This is a post by %s in subreddit %s.", username, subredditName)
-        rootContext.Send(enginePID, &PostInSubreddit{UserID: username, SubredditName: subredditName, Content: content})
-
-        // Fetch the feed for the subreddit.
-        rootContext.Send(enginePID, &GetFeed{SubredditName: subredditName})
-
-        // Introduce a small delay to simulate real-time actions.
-        // time.Sleep(time.Millisecond * 500)
-    }
+	}
 }
 
 func main() {
 
-	system := actor.NewActorSystem() // Create an actor system.
-	rootContext := system.Root       // Get the root context from the system.
+	// a central point for our actors and managing their lifecycle
+	system := actor.NewActorSystem() 
+	rootContext := system.Root
 
+	// defining the properties of actor anf using it to spawn an instance
 	engineProps := actor.PropsFromProducer(func() actor.Actor { return NewEngineActor() })
 	enginePID := rootContext.Spawn(engineProps)
 
