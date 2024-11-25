@@ -2,7 +2,7 @@
 
 // Register Account (Done)
 // Create subreddit (Done)
-// Join subreddit
+// Join subreddit (Done) added check for duplicate entries during simulation
 // Leave subreddit
 // Post in subreddit
 // Comment in subreddit
@@ -29,9 +29,20 @@ import (
 	"fmt"
 	"time"
 	"log"
+	"math/rand"
 
 	"github.com/asynkron/protoactor-go/actor"
 )
+
+// function to check if value exists in slice
+func contains(slice []string, value string) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
+}
 
 // Message types
 type RegisterUser struct {
@@ -42,11 +53,17 @@ type CreateSubreddit struct {
 	Name string
 }
 
+type JoinSubreddit struct {
+	UserID       string
+	SubredditName string
+}
+
 // user actor
 type UserActor struct {
 	ID       string
 	Username string
 	Karma    int
+	SubredditList []string
 }
 
 // behavior for user actor, which will act as listener
@@ -55,6 +72,13 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	case *RegisterUser:
 		state.Username = msg.Username
 		fmt.Printf("User %s registered.\n", state.Username)
+
+	case *JoinSubreddit:
+		if !contains(state.SubredditList, msg.SubredditName) {
+			state.SubredditList = append(state.SubredditList, msg.SubredditName)
+			fmt.Printf("User %s joined subreddit %s.\n", state.ID, msg.SubredditName)
+			// fmt.Println(state.SubredditList)
+		}
 	}
 }
 
@@ -62,6 +86,7 @@ func (state *UserActor) Receive(ctx actor.Context) {
 type SubredditActor struct {
 	Name  string
 	Posts []*PostActor // List of posts in the subreddit.
+	UserList []string
 }
 
 // behavior for sub reddit, to listen to incoming messages
@@ -70,6 +95,11 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 	case *CreateSubreddit:
 		state.Name = msg.Name
 		fmt.Printf("Subreddit %s created.\n", state.Name)
+
+	case *JoinSubreddit:
+		if !contains(state.UserList, msg.UserID) {
+			state.UserList = append(state.UserList, msg.UserID)
+		}
 	}
 }
 
@@ -109,6 +139,16 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		subredditPID := ctx.Spawn(subredditProps)
 		state.subreddits[msg.Name] = subredditPID
 		// fmt.Printf("Subreddit %s created.\n", msg.Name)
+	
+	case *JoinSubreddit:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			user := state.users[msg.UserID]
+			ctx.Send(subredditPID, &JoinSubreddit{UserID: msg.UserID})
+			ctx.Send(user, &JoinSubreddit{SubredditName: msg.SubredditName})
+			// fmt.Printf("User %s joined subreddit %s.\n", msg.UserID, msg.SubredditName)
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+		}
 
 	default:
 		log.Println("Unknown message type received")
@@ -121,7 +161,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	//Approach:
 	// create 10 users (Done)
 	// create 5 subreddits (Done)
-	// for each user, use random function (5 times) and assign the user to rnadom subreedits among available ones
+	// for each user, use random function (5 times) and assign the user to random subreedits among available ones (Done)
 	// run for loop for 20 times, make random posts by users in subreddits
 	// run for loop for 20 times, make random comments (non-hierarchial0)
 	// upvote 100 times, random posts
@@ -142,6 +182,17 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 		subredditName := fmt.Sprintf("sub%d", i+1)
 		rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
 	}
+
+	// join subreddits
+	for i := 0; i < 10; i++ {
+		username := fmt.Sprintf("user%d", i+1)
+		for j := 0; j < 5; j++ {
+			subredditName := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from 5 subreddits.
+
+			rootContext.Send(enginePID, &JoinSubreddit{UserID: username, SubredditName: subredditName})
+		}
+	}
+
 }
 
 func main() {
