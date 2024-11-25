@@ -1,7 +1,7 @@
 // to do
 
 // Register Account (Done)
-// Create subreddit
+// Create subreddit (Done)
 // Join subreddit
 // Leave subreddit
 // Post in subreddit
@@ -38,6 +38,10 @@ type RegisterUser struct {
 	Username string
 }
 
+type CreateSubreddit struct {
+	Name string
+}
+
 // user actor
 type UserActor struct {
 	ID       string
@@ -54,6 +58,27 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	}
 }
 
+// Subreddit Actor
+type SubredditActor struct {
+	Name  string
+	Posts []*PostActor // List of posts in the subreddit.
+}
+
+// behavior for sub reddit, to listen to incoming messages
+func (state *SubredditActor) Receive(ctx actor.Context) {
+	switch msg := ctx.Message().(type) {
+	case *CreateSubreddit:
+		state.Name = msg.Name
+		fmt.Printf("Subreddit %s created.\n", state.Name)
+	}
+}
+
+// Post Actor (for simplicity, not making it a full actor here)
+type PostActor struct {
+	UserID  string
+	Content string
+}
+
 // Engine Actor (Orchestrator)
 type EngineActor struct {
 	users      map[string]*actor.PID
@@ -68,7 +93,7 @@ func NewEngineActor() *EngineActor {
 	}
 }
 
-// behaviour for engineActor, to listen for incoming messages
+// behavior for engineActor, to listen for incoming messages
 func (state *EngineActor) Receive(ctx actor.Context) {
 	// checking msg type, based on msg struct
 	switch msg := ctx.Message().(type) {
@@ -78,6 +103,13 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		userPID := ctx.Spawn(userProps)
 		state.users[msg.Username] = userPID
 		// fmt.Printf("User %s registered.\n", msg.Username)
+	
+	case *CreateSubreddit:
+		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name} })
+		subredditPID := ctx.Spawn(subredditProps)
+		state.subreddits[msg.Name] = subredditPID
+		// fmt.Printf("Subreddit %s created.\n", msg.Name)
+
 	default:
 		log.Println("Unknown message type received")
 	}
@@ -88,7 +120,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 
 	//Approach:
 	// create 10 users (Done)
-	// create 5 subreddits
+	// create 5 subreddits (Done)
 	// for each user, use random function (5 times) and assign the user to rnadom subreedits among available ones
 	// run for loop for 20 times, make random posts by users in subreddits
 	// run for loop for 20 times, make random comments (non-hierarchial0)
@@ -104,6 +136,12 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
         // Register the user.
         rootContext.Send(enginePID, &RegisterUser{Username: username})
 	}
+
+	// creating 5 subredits
+	for i := 0; i < 5; i++ {
+		subredditName := fmt.Sprintf("sub%d", i+1)
+		rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
+	}
 }
 
 func main() {
@@ -116,8 +154,10 @@ func main() {
 	engineProps := actor.PropsFromProducer(func() actor.Actor { return NewEngineActor() })
 	enginePID := rootContext.Spawn(engineProps)
 
-    // Simulate 10 users interacting with the system.
+    // initiate simulator
     simulateUsers(rootContext, enginePID, 10)
 
-	time.Sleep(5 * time.Second) // Give some time for messages to be processed.
+	// delay main thread for some time,
+	// allow other processes to finish
+	time.Sleep(5 * time.Second) 
 }
