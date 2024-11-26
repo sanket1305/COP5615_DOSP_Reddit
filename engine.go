@@ -80,6 +80,20 @@ type PostinSubreddit struct{
 	downvotes		int
 }
 
+type Upvote struct {
+	User string
+	Subreddit string
+	Post string
+	Comment string
+}
+
+type Downvote struct {
+	User string
+	Subreddit string
+	Post string
+	Comment string
+}
+
 type UpdateKarma struct {
     UserID    	string
     Karma		int
@@ -107,6 +121,7 @@ type DisplayComments struct {
 type GetFeed struct {
 	SubredditName string
 }
+
 
 // user actor
 type UserActor struct {
@@ -419,113 +434,27 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		} else {
 			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
 		}
+	
+	case *Upvote:
+		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
+			// if we receive non empty value in comment, then it's upvote for a comment
+			// else it's upvote for a post 
+			ctx.Send(subredditPID, &Upvote{Post: msg.Post, Comment: msg.Comment})
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.Subreddit)
+		}
+
+	case *Downvote:
+		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
+			ctx.Send(subredditPID, &Upvote{Post: msg.Post, Comment: msg.Comment})
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.Subreddit)
+		}
 
 	default:
 		log.Println("Unknown message type received")
 	}
 }		
-
-// // function to simulate our reddit engine for multi-user scenario
-// func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUsers int) {
-
-// 	//Approach:
-// 	// create 10 users (Done)
-// 	// create 5 subreddits (Done)
-// 	// for each user, use random function (5 times) and assign the user to random subreedits among available ones (Done)
-// 	// run for loop for 20 times, make random posts by users in subreddits
-// 	// run for loop for 20 times, make random comments (non-hierarchial0)
-// 	// upvote 100 times, random posts
-// 	// downvote 100 times random posts
-// 	// make 2 users leave the subreddit
-// 	// get feed for all 5 subreddits 
-
-// 	// creating 10 users
-// 	for i := 0; i < numUsers; i++ {
-//         username := fmt.Sprintf("user%d", i+1)
-
-//         // Register the user.
-//         rootContext.Send(enginePID, &RegisterUser{Username: username})
-// 	}
-
-// 	// creating 5 subredits
-// 	for i := 0; i < 5; i++ {
-// 		subredditName := fmt.Sprintf("sub%d", i+1)
-// 		rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
-// 	}
-
-// 	// join subreddits
-// 	for i := 0; i < 10; i++ {
-// 		username := fmt.Sprintf("user%d", i+1)
-// 		for j := 0; j < 5; j++ {
-// 			subredditName := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from 5 subreddits.
-
-// 			rootContext.Send(enginePID, &JoinSubreddit{UserID: username, SubredditName: subredditName})
-// 		}
-// 	}
-
-// 	// users posts in a subreddit
-// 	// for i := 0; i < 10; i++ {
-// 	// 	username := fmt.Sprintf("user%d", rand.Intn(10)+1)
-// 	// 	subredditname := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from user's subreddits.
-// 	// 	content := fmt.Sprintf("user %s posted this content in subreddit %s", username, subredditname)
-// 	// 	rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content})
-// 	// }
-
-// 	username := "user1"
-// 	subredditname := "sub1"
-// 	content := "user1 posted this content in subreddit1"
-// 	rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content})
-
-// 	// users leaves randomly
-// 	for i:= 0; i< 5; i++ {
-// 		username := fmt.Sprintf("user%d", rand.Intn(10)+1)  
-// 		subredditname:= fmt.Sprintf("sub%d", rand.Intn(5)+1)   // Randomly choose from user's subreddits.
-
-// 		// time.Sleep(3 * time.Second)
-// 		// fmt.Println(username)
-// 		// fmt.Println(subredditname)
-// 		rootContext.Send(enginePID, &LeaveSubreddit{UserID: username, SubredditName: subredditname})
-// 	}
-
-// 	// send messages
-// 	username1 := "user1"
-// 	username2 := "user2"
-// 	content = "user1 sending hi to user2"
-
-// 	rootContext.Send(enginePID, &DirectMessage{User1: username1, User2: username2, Message: content})
-// 	// time.Sleep(5 * time.Second)
-
-// 	rootContext.Send(enginePID, &Debug{})
-
-// 	// comment on posts
-// 	username = "user1"
-// 	subreddit := "sub1"
-// 	post := "post1"
-// 	// comment := "com1"
-// 	commentTxt := "This is 1st comment."
-
-// 	rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt})
-
-// 	// parentComment := "com1"
-// 	// commentTxt = "This is 2nd comment."
-
-// 	// rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt, ParentComment: parentComment})
-
-// 	// parentComment = "com1"
-// 	// commentTxt = "This is 3rd comment."
-
-// 	// rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt, ParentComment: parentComment})
-
-// 	// parentComment = "com2"
-// 	// commentTxt = "This is 4th comment."
-
-// 	// rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt, ParentComment: parentComment})
-
-// 	rootContext.Send(enginePID, &DebugComments{})
-
-// }
-
-
 
 
 func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUsers int) {
@@ -562,6 +491,28 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 			content2 := fmt.Sprintf("again %s posted this content in subreddit %s", username, subredditname)
 			rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content1})
 			rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content2})
+		}
+	}
+
+	// upvoting posts
+	for i := 1; i <= 5; i++ { 
+		totalPosts := (numUsers - i)*2
+		for j := 1; j <= totalPosts; j++ {
+			username := fmt.Sprintf("user%d", max(rand.Intn(numUsers), 1))
+			subreddit := fmt.Sprintf("sub%d", i)
+			post := fmt.Sprintf("post%d", j)
+			rootContext.Send(enginePID, &Upvote{User: username, Subreddit: subreddit, Post: post})
+		}
+	}
+
+	//downvoting posts
+	for i := 1; i <= 5; i++ { 
+		totalPosts := (numUsers - i)*2
+		for j := 1; j <= totalPosts; j++ {
+			username := fmt.Sprintf("user%d", max(rand.Intn(numUsers), 1))
+			subreddit := fmt.Sprintf("sub%d", i)
+			post := fmt.Sprintf("post%d", j)
+			rootContext.Send(enginePID, &Downvote{User: username, Subreddit: subreddit, Post: post})
 		}
 	}
 
@@ -631,9 +582,6 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	rootContext.Send(enginePID, &GetFeed{SubredditName: subredditname1})
 
 }
-
-
-
 
 func main() {
 
