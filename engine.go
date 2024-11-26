@@ -88,12 +88,12 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *RegisterUser:
 		state.Username = msg.Username
-		fmt.Printf("User %s registered.\n", state.Username)
+		fmt.Printf("%s registered.\n", state.Username)
 
 	case *JoinSubreddit:
 		if !contains(state.SubredditList, msg.SubredditName) {
 			state.SubredditList = append(state.SubredditList, msg.SubredditName)
-			fmt.Printf("User %s joined subreddit %s.\n", state.ID, msg.SubredditName)
+			fmt.Printf("%s joined subreddit %s.\n", state.ID, msg.SubredditName)
 			// fmt.Println(state.SubredditList)
 		}
 	
@@ -106,9 +106,11 @@ func (state *UserActor) Receive(ctx actor.Context) {
 			if v == msg.SubredditName {
 				// Remove the element at index i
 				currsubreddits = append(currsubreddits[:i], currsubreddits[i+1:]...)
+				break
 			}
 		}
 		state.SubredditList = currsubreddits
+		fmt.Printf("%s left subreddit %s. \n", state.ID, msg.SubredditName)
 		// fmt.Println("After") // DEBUG
 		// fmt.Println(currsubreddits) // DEBUG
 	}
@@ -117,8 +119,32 @@ func (state *UserActor) Receive(ctx actor.Context) {
 // Subreddit Actor
 type SubredditActor struct {
 	Name  string
-	Posts []*PostActor // List of posts in the subreddit.
+	numPosts int
+	Posts map[string]*actor.PID // List of posts in the subreddit.
 	UserList []string
+}
+
+type PostActor struct {
+	PostID string
+	UserID string
+	Content string
+}
+
+type PostinSubreddit struct{
+	PostID string
+	Content string
+	UserID string
+	SubredditName string
+}
+
+func (state *PostActor) Receive(ctx actor.Context) {
+	switch msg := ctx.Message().(type) {
+	case *PostinSubreddit:
+		state.PostID = msg.PostID
+		state.Content = msg.Content
+		state.UserID = msg.UserID
+		fmt.Printf("Post %s created.\n", state.PostID)
+	}
 }
 
 // behavior for sub reddit, to listen to incoming messages
@@ -126,6 +152,8 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *CreateSubreddit:
 		state.Name = msg.Name
+		state.numPosts = 0
+		// state.Posts = make(map[string]*actor.PID) // Initialize Posts map here
 		fmt.Printf("Subreddit %s created.\n", state.Name)
 
 	case *JoinSubreddit:
@@ -142,20 +170,35 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 			if v == msg.UserID {
 				// Remove the element at index i
 				currusers = append(currusers[:i], currusers[i+1:]...)
+				break
 			}
 		}
 		state.UserList = currusers
 		// fmt.Println("After")  // DEBUG
 		// fmt.Println(currusers)  // DEBUG
+	
+	case *PostinSubreddit:
+		if state.Posts == nil {
+			state.Posts = make(map[string]*actor.PID) // Initialize Posts lazily
+		}
+		postProps := actor.PropsFromProducer(func() actor.Actor { return &PostActor{Content: msg.Content, UserID: msg.UserID} })
+		postid := ctx.Spawn(postProps) 
+		for i, v := range state.UserList {
+			if v == msg.UserID {
+				state.numPosts = state.numPosts+1
+				nPosts := fmt.Sprintf("sub%d", state.numPosts)
+				state.Posts[nPosts] = postid
+				fmt.Printf("%s posted in subreddit %s. \n", state.UserList[i], state.Name)
+				break
+			}
+		}
+		
 	}
 
 }
 
 // Post Actor (for simplicity, not making it a full actor here)
-type PostActor struct {
-	UserID  string
-	Content string
-}
+
 
 // Engine Actor (Orchestrator)
 type EngineActor struct {
@@ -205,6 +248,14 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			user := state.users[msg.UserID]
 			ctx.Send(subredditPID, &LeaveSubreddit{UserID: msg.UserID})
 			ctx.Send(user, &LeaveSubreddit{SubredditName: msg.SubredditName})
+			// fmt.Printf("User %s left Subreddit %s. \n", msg.UserID, msg.SubredditName)
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+		}
+	
+	case *PostinSubreddit:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			ctx.Send(subredditPID, &PostinSubreddit{Content: msg.Content, UserID: msg.UserID})
 		} else {
 			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
 		}
@@ -276,15 +327,22 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 		}
 	}
 
+	// users posts in a subreddit
+	for i := 0; i < 10; i++ {
+		username := fmt.Sprintf("user%d", rand.Intn(10)+1)
+		subredditname := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from user's subreddits.
+		content := fmt.Sprintf("user %s posted this content in subreddit %s", username, subredditname)
+		rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content})
+	}
+
 	// users leaves randomly
 	for i:= 0; i< 5; i++ {
-		username := fmt.Sprintf("user%d", rand.Intn(10)+1)
-		subredditname:= fmt.Sprintf("sub%d", rand.Intn(5)+1)
+		username := fmt.Sprintf("user%d", rand.Intn(10)+1)  
+		subredditname:= fmt.Sprintf("sub%d", rand.Intn(5)+1)   // Randomly choose from user's subreddits.
 
 		// time.Sleep(3 * time.Second)
 		// fmt.Println(username)
 		// fmt.Println(subredditname)
-
 		rootContext.Send(enginePID, &LeaveSubreddit{UserID: username, SubredditName: subredditname})
 	}
 
