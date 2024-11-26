@@ -50,6 +50,8 @@ func contains(slice []string, value string) bool {
 // for debuging
 type Debug struct {}
 
+type DebugComments struct {}
+
 // Message types
 type RegisterUser struct {
 	Username string
@@ -80,6 +82,19 @@ type DirectMessage struct {
 	User1		string
 	User2		string
 	Message		string
+}
+
+type MakeComment struct {
+	CommentPID	*actor.PID
+	User		string
+	Subreddit	string
+	Post		string
+	CommentTxt	string	
+	ParentComment	string	
+}
+
+type DisplayComments struct {
+	PostName string
 }
 
 // user actor
@@ -123,10 +138,29 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	}
 }
 
+type CommentActor struct {
+	CommentID string
+	UserID string
+	Comment string
+	SubComments []*actor.PID
+}
+
+func (state *CommentActor) Receive(ctx actor.Context) {
+	switch msg := ctx.Message().(type) {
+	case *MakeComment:
+		state.UserID = msg.User
+		state.Comment = msg.CommentTxt
+		state.SubComments = append(state.SubComments, msg.CommentPID)
+	}
+}
+
 type PostActor struct {
 	PostID string
 	UserID string
 	Content string
+	numComments int
+	Comments []string
+	AllComments map[string]*actor.PID
 }
 
 func (state *PostActor) Receive(ctx actor.Context) {
@@ -135,7 +169,24 @@ func (state *PostActor) Receive(ctx actor.Context) {
 		state.PostID = msg.PostID
 		state.Content = msg.Content
 		state.UserID = msg.UserID
+		state.numComments = 0
 		fmt.Printf("Post %s created.\n", state.PostID)
+
+	case *MakeComment:
+		newCommentID := fmt.Sprintf("com%d", state.numComments + 1)
+		commentProps := actor.PropsFromProducer(func() actor.Actor {return &CommentActor{CommentID: newCommentID, UserID: msg.User, Comment: msg.CommentTxt, SubComments: make([]*actor.PID, 0)}})
+		commentPID := ctx.Spawn(commentProps)
+		state.AllComments[newCommentID] = commentPID
+		if msg.ParentComment == "" {
+			state.Comments = append(state.Comments, newCommentID)
+		} else {
+			pCommentID := state.AllComments[msg.ParentComment]
+			ctx.Send(pCommentID, &MakeComment{User: msg.User, CommentTxt: msg.CommentTxt, CommentPID: commentPID})
+		}
+	
+	case *DisplayComments:
+		fmt.Println(state.numComments)
+		fmt.Println(state.Comments)
 	}
 }
 
@@ -192,7 +243,20 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 				break
 			}
 		}
-		
+	
+	case *MakeComment:
+		if postPID, ok := state.Posts[msg.Post]; ok {
+			ctx.Send(postPID, &MakeComment{User: msg.User, CommentTxt: msg.CommentTxt})
+		} else {
+			fmt.Printf("Post %s not found.\n", msg.Post)
+		}
+
+	case *DisplayComments:
+		if postPID, ok := state.Posts[msg.PostName]; ok {
+			ctx.Send(postPID, &DisplayComments{})
+		} else {
+			fmt.Printf("Post %s not found.\n", msg.PostName)
+		}
 	}
 
 }
@@ -278,8 +342,24 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			state.msgs[key] = value
 		}
 	
+	case *MakeComment:
+		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
+			ctx.Send(subredditPID, &MakeComment{User: msg.User, Post: msg.Post, CommentTxt: msg.CommentTxt})
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.Subreddit)
+		}
+	
 	case *Debug:
 		fmt.Println(state.msgs)
+	
+	case *DebugComments:
+		subredditname := "sub1"
+		postname := "post1"
+		if subredditPID, ok := state.subreddits[subredditname]; ok {
+			ctx.Send(subredditPID, &DisplayComments{PostName: postname})
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", subredditname)
+		}
 
 	default:
 		log.Println("Unknown message type received")
@@ -325,12 +405,17 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	}
 
 	// users posts in a subreddit
-	for i := 0; i < 10; i++ {
-		username := fmt.Sprintf("user%d", rand.Intn(10)+1)
-		subredditname := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from user's subreddits.
-		content := fmt.Sprintf("user %s posted this content in subreddit %s", username, subredditname)
-		rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content})
-	}
+	// for i := 0; i < 10; i++ {
+	// 	username := fmt.Sprintf("user%d", rand.Intn(10)+1)
+	// 	subredditname := fmt.Sprintf("sub%d", rand.Intn(5)+1) // Randomly choose from user's subreddits.
+	// 	content := fmt.Sprintf("user %s posted this content in subreddit %s", username, subredditname)
+	// 	rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content})
+	// }
+
+	username := "user1"
+	subredditname := "sub1"
+	content := "user1 posted this content in subreddit1"
+	rootContext.Send(enginePID, &PostinSubreddit{UserID: username, SubredditName: subredditname, Content: content})
 
 	// users leaves randomly
 	for i:= 0; i< 5; i++ {
@@ -346,12 +431,38 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	// send messages
 	username1 := "user1"
 	username2 := "user2"
-	content := "user1 sending hi to user2"
+	content = "user1 sending hi to user2"
 
 	rootContext.Send(enginePID, &DirectMessage{User1: username1, User2: username2, Message: content})
 	// time.Sleep(5 * time.Second)
 
 	rootContext.Send(enginePID, &Debug{})
+
+	// comment on posts
+	username = "user1"
+	subreddit := "sub1"
+	post := "post1"
+	// comment := "com1"
+	commentTxt := "This is 1st comment."
+
+	rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt})
+
+	// parentComment := "com1"
+	// commentTxt = "This is 2nd comment."
+
+	// rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt, ParentComment: parentComment})
+
+	// parentComment = "com1"
+	// commentTxt = "This is 3rd comment."
+
+	// rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt, ParentComment: parentComment})
+
+	// parentComment = "com2"
+	// commentTxt = "This is 4th comment."
+
+	// rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt, ParentComment: parentComment})
+
+	rootContext.Send(enginePID, &DebugComments{})
 
 }
 
