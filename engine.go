@@ -362,7 +362,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			ctx.Send(user, &JoinSubreddit{SubredditName: msg.SubredditName})
 			// fmt.Printf("User %s joined subreddit %s.\n", msg.UserID, msg.SubredditName)
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+			fmt.Printf("Subreddit %s not found. from EngineActor via JoinSubreddit\n", msg.SubredditName)
 		}
 	
 	case *LeaveSubreddit:
@@ -372,14 +372,14 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			ctx.Send(user, &LeaveSubreddit{SubredditName: msg.SubredditName})
 			// fmt.Printf("User %s left Subreddit %s. \n", msg.UserID, msg.SubredditName)
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+			fmt.Printf("Subreddit %s not found. from EngineActor via LeaveSubreddit\n", msg.SubredditName)
 		}
 	
 	case *PostinSubreddit:
 		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
 			ctx.Send(subredditPID, &PostinSubreddit{Content: msg.Content, UserID: msg.UserID})
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+			fmt.Printf("Subreddit %s not found. from EngineActor via PostinSubreddit\n", msg.SubredditName)
 		}
 	
 	case *UpdateKarma:
@@ -412,7 +412,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
 			ctx.Send(subredditPID, &MakeComment{User: msg.User, Post: msg.Post, CommentTxt: msg.CommentTxt, ParentComment: msg.ParentComment})
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.Subreddit)
+			fmt.Printf("Subreddit %s not found. from EngineActor via MakeComment\n", msg.Subreddit)
 		}
 	
 	case *Debug:
@@ -424,7 +424,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		if subredditPID, ok := state.subreddits[subredditname]; ok {
 			ctx.Send(subredditPID, &DisplayComments{PostName: postname})
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", subredditname)
+			fmt.Printf("Subreddit %s not found. from EngineActor via DebugComments\n", subredditname)
 		}
 	
 	case *GetFeed:
@@ -432,7 +432,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
 			fmt.Printf("Fetching feed for subreddit %s.\n", msg.SubredditName)
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
+			fmt.Printf("Subreddit %s not found. from EngineActor via GetFeed\n", msg.SubredditName)
 		}
 	
 	case *Upvote:
@@ -441,14 +441,14 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			// else it's upvote for a post 
 			ctx.Send(subredditPID, &Upvote{Post: msg.Post, Comment: msg.Comment})
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.Subreddit)
+			fmt.Printf("Subreddit %s not found.\n from EngineActor via Upvote", msg.Subreddit)
 		}
 
 	case *Downvote:
 		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
 			ctx.Send(subredditPID, &Upvote{Post: msg.Post, Comment: msg.Comment})
 		} else {
-			fmt.Printf("Subreddit %s not found.\n", msg.Subreddit)
+			fmt.Printf("Subreddit %s not found. from EngineActor via Downvote\n", msg.Subreddit)
 		}
 
 	default:
@@ -521,8 +521,8 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	u2 := u1+1
 	username1 := fmt.Sprintf("user%d", u1)
 	username2 := fmt.Sprintf("user%d", u2)
-	subredditname1 := fmt.Sprintf("sub%d", rand.Intn(min(u1, 5))) // Randomly choose from user's subreddits.
-	subredditname2 := fmt.Sprintf("sub%d", rand.Intn(min(u2, 5))) // Randomly choose from user's subreddits.
+	subredditname1 := fmt.Sprintf("sub%d", min(max(rand.Intn(u1), 1), 5)) // Randomly choose from user's subreddits.
+	subredditname2 := fmt.Sprintf("sub%d", min(max(rand.Intn(u2), 1), 5)) // Randomly choose from user's subreddits.
 	// time.Sleep(3 * time.Second)
 	// fmt.Println(username)
 	// fmt.Println(subredditname)
