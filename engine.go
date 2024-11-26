@@ -186,7 +186,7 @@ func (state *PostActor) Receive(ctx actor.Context) {
 		state.Content = msg.Content
 		state.UserID = msg.UserID
 		state.numComments = 0
-		state.AllComments = make(map[string]*actor.PID)
+		// state.AllComments = make(map[string]*actor.PID)
 		state.Comments = make([]string, 0)
 		fmt.Printf("Post %s created.\n", state.PostID)
 
@@ -194,6 +194,9 @@ func (state *PostActor) Receive(ctx actor.Context) {
 		newCommentID := fmt.Sprintf("com%d", state.numComments + 1)
 		commentProps := actor.PropsFromProducer(func() actor.Actor {return &CommentActor{CommentID: newCommentID, UserID: msg.User, Comment: msg.CommentTxt, SubComments: make([]*actor.PID, 0)}})
 		commentPID := ctx.Spawn(commentProps)
+		if state.AllComments == nil {
+			state.AllComments = make(map[string]*actor.PID) // Initialize comments lazily
+		}
 		state.AllComments[newCommentID] = commentPID
 		if msg.ParentComment == "" {
 			state.Comments = append(state.Comments, newCommentID)
@@ -260,7 +263,7 @@ func (state *SubredditActor) Receive(ctx actor.Context) {   // , rootContext *ac
 				nPosts := fmt.Sprintf("post%d", state.numPosts)
 				upv := rand.Intn(numUsers)
 				dnv := rand.Intn(numUsers - upv)
-				postProps := actor.PropsFromProducer(func() actor.Actor { return &PostActor{Content: msg.Content, UserID: msg.UserID, upvotes: upv, downvotes: dnv} })
+				postProps := actor.PropsFromProducer(func() actor.Actor { return &PostActor{PostID: nPosts ,Content: msg.Content, UserID: msg.UserID, upvotes: upv, downvotes: dnv} })
 				postid := ctx.Spawn(postProps) 
 				state.Posts[nPosts] = postid
 				fmt.Printf("%s posted in subreddit %s. \n", state.UserList[i], state.Name)
@@ -559,6 +562,23 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	// time.Sleep(5 * time.Second)
 
 	rootContext.Send(enginePID, &Debug{})
+
+	time.Sleep(5 * time.Second)
+	// comment on posts
+	username := "user3"
+	subreddit := "sub2"
+	post := "post1"
+	// comment := "com1"
+	commentTxt := "This is 1st comment."
+
+	rootContext.Send(enginePID, &MakeComment{User: username, Subreddit: subreddit, Post: post, CommentTxt: commentTxt})
+	
+	time.Sleep(2 * time.Second)
+	rootContext.Send(enginePID, &DebugComments{})
+	
+	// for i := 0; i<=10; i++
+
+
 }
 
 
