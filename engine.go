@@ -7,7 +7,7 @@
 // Post in subreddit (Done)
 // Comment in subreddit
 // 	Hierarchial view
-// Upvote, Downvote, compute Karma
+// Upvote, Downvote, compute Karma (Done)
 // get feed of posts
 // get lists of direct messages; reply to direct messages (Done)
 	// engine actor will maintain one feild, which will store all the messages in map
@@ -62,26 +62,33 @@ type CreateSubreddit struct {
 }
 
 type JoinSubreddit struct {
-	UserID       string
-	SubredditName string
+	UserID       	string
+	SubredditName 	string
 }
 
 type LeaveSubreddit struct {
-	UserID       string
-	SubredditName string
+	UserID       	string
+	SubredditName	string
 }
 
 type PostinSubreddit struct{
-	PostID string
-	Content string
-	UserID string
-	SubredditName string
+	PostID			string
+	Content			string
+	UserID			string
+	SubredditName	string
+	upvotes			int
+	downvotes		int
+}
+
+type UpdateKarma struct {
+    UserID    	string
+    Karma		int
 }
 
 type DirectMessage struct {
-	User1		string
-	User2		string
-	Message		string
+	User1	string
+	User2	string
+	Message	string
 }
 
 type MakeComment struct {
@@ -99,10 +106,10 @@ type DisplayComments struct {
 
 // user actor
 type UserActor struct {
-	ID       string
-	Username string
-	Karma    int
-	SubredditList []string
+	ID       		string
+	Username 		string
+	Karma    		int
+	SubredditList	[]string
 }
 
 // behavior for user actor, which will act as listener
@@ -110,6 +117,7 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 	case *RegisterUser:
 		state.Username = msg.Username
+		state.Karma = 0
 		fmt.Printf("%s registered.\n", state.Username)
 
 	case *JoinSubreddit:
@@ -135,6 +143,12 @@ func (state *UserActor) Receive(ctx actor.Context) {
 		fmt.Printf("%s left subreddit %s. \n", state.ID, msg.SubredditName)
 		// fmt.Println("After") // DEBUG
 		// fmt.Println(currsubreddits) // DEBUG
+	
+	case *UpdateKarma:
+        if msg.UserID == state.ID { // Ensure it's for this user
+            state.Karma += msg.Karma
+            fmt.Printf("%s's Karma has been updated to %d.\n", state.ID, state.Karma)
+        }
 	}
 }
 
@@ -161,6 +175,8 @@ type PostActor struct {
 	numComments int
 	Comments []string
 	AllComments map[string]*actor.PID
+	upvotes int
+	downvotes int
 }
 
 func (state *PostActor) Receive(ctx actor.Context) {
@@ -196,10 +212,11 @@ type SubredditActor struct {
 	numPosts int
 	Posts map[string]*actor.PID // List of posts in the subreddit.
 	UserList []string
+	engine *actor.PID
 }
 
 // behavior for sub reddit, to listen to incoming messages
-func (state *SubredditActor) Receive(ctx actor.Context) {
+func (state *SubredditActor) Receive(ctx actor.Context) {   // , rootContext *actor.RootContext, enginePID *actor.PID
 	switch msg := ctx.Message().(type) {
 	case *CreateSubreddit:
 		state.Name = msg.Name
@@ -232,14 +249,20 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 		if state.Posts == nil {
 			state.Posts = make(map[string]*actor.PID) // Initialize Posts lazily
 		}
-		postProps := actor.PropsFromProducer(func() actor.Actor { return &PostActor{Content: msg.Content, UserID: msg.UserID} })
+		numUsers := len(state.UserList)
+		upv := rand.Intn(numUsers)
+		dnv := rand.Intn(numUsers - upv)
+		postProps := actor.PropsFromProducer(func() actor.Actor { return &PostActor{Content: msg.Content, UserID: msg.UserID, upvotes: upv, downvotes: dnv} })
 		postid := ctx.Spawn(postProps) 
 		for i, v := range state.UserList {
+
 			if v == msg.UserID {
-				state.numPosts = state.numPosts+1
+				state.numPosts++
 				nPosts := fmt.Sprintf("post%d", state.numPosts)
 				state.Posts[nPosts] = postid
 				fmt.Printf("%s posted in subreddit %s. \n", state.UserList[i], state.Name)
+
+                ctx.Send(state.engine, &UpdateKarma{UserID: msg.UserID, Karma: upv-dnv})
 				break
 			}
 		}
@@ -263,9 +286,9 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 
 // Engine Actor (Orchestrator)
 type EngineActor struct {
-	users      map[string]*actor.PID
-	subreddits map[string]*actor.PID
-	msgs 	   map[[2]string][][]string
+	users      	map[string]*actor.PID
+	subreddits 	map[string]*actor.PID
+	msgs 	   	map[[2]string][][]string
 }
 
 // function to return pointer to engine actor with empty map of users and subreddits
@@ -289,7 +312,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		// fmt.Printf("User %s registered.\n", msg.Username)
 	
 	case *CreateSubreddit:
-		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name} })
+		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name, engine: ctx.Self()} })
 		subredditPID := ctx.Spawn(subredditProps)
 		state.subreddits[msg.Name] = subredditPID
 		// fmt.Printf("Subreddit %s created.\n", msg.Name)
@@ -320,6 +343,11 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		} else {
 			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
 		}
+	
+	case *UpdateKarma:
+		user := state.users[msg.UserID]
+		// fmt.Printf("%s's karma is received in Engine\n", msg.UserID)
+		ctx.Send(user, &UpdateKarma{UserID:msg.UserID, Karma: msg.Karma})
 
 	case *DirectMessage:
 		// create keys for searching in
