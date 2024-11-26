@@ -186,7 +186,7 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 		for i, v := range state.UserList {
 			if v == msg.UserID {
 				state.numPosts = state.numPosts+1
-				nPosts := fmt.Sprintf("sub%d", state.numPosts)
+				nPosts := fmt.Sprintf("post%d", state.numPosts)
 				state.Posts[nPosts] = postid
 				fmt.Printf("%s posted in subreddit %s. \n", state.UserList[i], state.Name)
 				break
