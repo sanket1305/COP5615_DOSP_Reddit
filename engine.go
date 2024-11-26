@@ -210,7 +210,7 @@ func (state *SubredditActor) Receive(ctx actor.Context) {   // , rootContext *ac
 				nPosts := fmt.Sprintf("post%d", state.numPosts)
 				state.Posts[nPosts] = postid
 				fmt.Printf("%s posted in subreddit %s. \n", state.UserList[i], state.Name)
-				
+
                 ctx.Send(state.engine, &UpdateKarma{UserID: msg.UserID, Karma: upv-dnv})
 				break
 			}
@@ -282,7 +282,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	
 	case *UpdateKarma:
 		user := state.users[msg.UserID]
-		fmt.Printf("%s's karma is received in Engine\n", msg.UserID)
+		// fmt.Printf("%s's karma is received in Engine\n", msg.UserID)
 		ctx.Send(user, &UpdateKarma{UserID:msg.UserID, Karma: msg.Karma})
 
 	case *DirectMessage:
