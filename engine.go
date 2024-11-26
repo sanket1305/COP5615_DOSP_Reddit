@@ -8,7 +8,7 @@
 // Comment in subreddit (Done)
 // 	Hierarchial view (Done)
 // Upvote, Downvote, compute Karma (Done)
-// get feed of posts
+// get feed of posts (Done)
 // get lists of direct messages; reply to direct messages (Done)
 	// engine actor will maintain one feild, which will store all the messages in map
 	// the map key will hold [user1, user2]... it will optimize the performance, to retriev the chatsin O(1)
@@ -102,6 +102,10 @@ type MakeComment struct {
 
 type DisplayComments struct {
 	PostName string
+}
+
+type GetFeed struct {
+	SubredditName string
 }
 
 // user actor
@@ -211,6 +215,11 @@ func (state *PostActor) Receive(ctx actor.Context) {
 	case *DisplayComments:
 		fmt.Println(state.numComments)
 		fmt.Println(state.Comments)
+	
+	case *GetFeed:
+		fmt.Println(state.UserID)
+		fmt.Println(state.Content)
+		fmt.Printf("The total number of comments + sub comments are %d\n", state.numComments)
 	}
 }
 
@@ -289,8 +298,13 @@ func (state *SubredditActor) Receive(ctx actor.Context) {   // , rootContext *ac
 		} else {
 			fmt.Printf("Post %s not found.\n", msg.PostName)
 		}
-	}
 
+	case *GetFeed:
+		fmt.Printf("Fetching feed for subreddit %s\n", state.Name)
+		for _, post := range state.Posts {
+			ctx.Send(post, &GetFeed{})
+		}
+	}
 }
 
 // Engine Actor (Orchestrator)
@@ -396,6 +410,14 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			ctx.Send(subredditPID, &DisplayComments{PostName: postname})
 		} else {
 			fmt.Printf("Subreddit %s not found.\n", subredditname)
+		}
+	
+	case *GetFeed:
+		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
+			ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
+			fmt.Printf("Fetching feed for subreddit %s.\n", msg.SubredditName)
+		} else {
+			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
 		}
 
 	default:
@@ -605,8 +627,8 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	time.Sleep(2 * time.Second)
 	rootContext.Send(enginePID, &DebugComments{})
 	
-	// for i := 0; i<=10; i++
-
+	// Fetch the feed for the subreddit.
+	rootContext.Send(enginePID, &GetFeed{SubredditName: subredditname1})
 
 }
 
