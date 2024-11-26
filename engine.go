@@ -9,7 +9,10 @@
 // 	Hierarchial view
 // Upvote, Downvote, compute Karma
 // get feed of posts
-// get lists of direct messages; reply to direct messages
+// get lists of direct messages; reply to direct messages (Done)
+	// engine actor will maintain one feild, which will store all the messages in map
+	// the map key will hold [user1, user2]... it will optimize the performance, to retriev the chatsin O(1)
+	// the value will hold slice[slice].... where each element will indicate, what's the message and it's send by which user
 
 // implement simulator
 // 	simulate as many users as you can (10 at start)
@@ -44,6 +47,9 @@ func contains(slice []string, value string) bool {
 	return false
 }
 
+// for debuging
+type Debug struct {}
+
 // Message types
 type RegisterUser struct {
 	Username string
@@ -61,6 +67,12 @@ type JoinSubreddit struct {
 type LeaveSubreddit struct {
 	UserID       string
 	SubredditName string
+}
+
+type DirectMessage struct {
+	User1		string
+	User2		string
+	Message		string
 }
 
 // user actor
@@ -149,6 +161,7 @@ type PostActor struct {
 type EngineActor struct {
 	users      map[string]*actor.PID
 	subreddits map[string]*actor.PID
+	msgs 	   map[[2]string][][]string
 }
 
 // function to return pointer to engine actor with empty map of users and subreddits
@@ -156,6 +169,7 @@ func NewEngineActor() *EngineActor {
 	return &EngineActor{
 		users:      make(map[string]*actor.PID),
 		subreddits: make(map[string]*actor.PID),
+		msgs:		make(map[[2]string][][]string),
 	}
 }
 
@@ -195,6 +209,30 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			fmt.Printf("Subreddit %s not found.\n", msg.SubredditName)
 		}
 
+	case *DirectMessage:
+		// create keys for searching in
+		key := [2]string{msg.User1, msg.User2}
+		key_rev := [2]string{msg.User2, msg.User1}
+
+		if value, ok := state.msgs[key]; ok {
+			newMessage := []string{msg.User1, msg.Message}
+			value = append(value, newMessage)
+			state.msgs[key] = value
+
+		} else if value, ok := state.msgs[key_rev]; ok {
+			newMessage := []string{msg.User1, msg.Message}
+			value = append(value, newMessage)
+			state.msgs[key] = value
+		} else {
+			newMessage := []string{msg.User1, msg.Message}
+			value := make([][]string, 0)
+			value = append(value, newMessage)
+			state.msgs[key] = value
+		}
+	
+	case *Debug:
+		fmt.Println(state.msgs)
+
 	default:
 		log.Println("Unknown message type received")
 	}
@@ -212,7 +250,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	// upvote 100 times, random posts
 	// downvote 100 times random posts
 	// make 2 users leave the subreddit
-	// get feed for all 5 subreddits
+	// get feed for all 5 subreddits 
 
 	// creating 10 users
 	for i := 0; i < numUsers; i++ {
@@ -250,6 +288,16 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 		rootContext.Send(enginePID, &LeaveSubreddit{UserID: username, SubredditName: subredditname})
 	}
 
+	// send messages
+	username1 := "user1"
+	username2 := "user2"
+	content := "user1 sending hi to user2"
+
+	rootContext.Send(enginePID, &DirectMessage{User1: username1, User2: username2, Message: content})
+	time.Sleep(5 * time.Second)
+
+	rootContext.Send(enginePID, &Debug{})
+
 }
 
 func main() {
@@ -267,5 +315,5 @@ func main() {
 
 	// delay main thread for some time,
 	// allow other processes to finish
-	time.Sleep(8 * time.Second) 
+	time.Sleep(13 * time.Second) 
 }
