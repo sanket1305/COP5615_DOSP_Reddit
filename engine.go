@@ -4,7 +4,7 @@
 // Create subreddit (Done)
 // Join subreddit (Done) added check for duplicate entries during simulation
 // Leave subreddit (Done) added check to verify if the pair exists
-// Post in subreddit
+// Post in subreddit (Done)
 // Comment in subreddit
 // 	Hierarchial view
 // Upvote, Downvote, compute Karma
@@ -69,6 +69,13 @@ type LeaveSubreddit struct {
 	SubredditName string
 }
 
+type PostinSubreddit struct{
+	PostID string
+	Content string
+	UserID string
+	SubredditName string
+}
+
 type DirectMessage struct {
 	User1		string
 	User2		string
@@ -116,25 +123,10 @@ func (state *UserActor) Receive(ctx actor.Context) {
 	}
 }
 
-// Subreddit Actor
-type SubredditActor struct {
-	Name  string
-	numPosts int
-	Posts map[string]*actor.PID // List of posts in the subreddit.
-	UserList []string
-}
-
 type PostActor struct {
 	PostID string
 	UserID string
 	Content string
-}
-
-type PostinSubreddit struct{
-	PostID string
-	Content string
-	UserID string
-	SubredditName string
 }
 
 func (state *PostActor) Receive(ctx actor.Context) {
@@ -145,6 +137,14 @@ func (state *PostActor) Receive(ctx actor.Context) {
 		state.UserID = msg.UserID
 		fmt.Printf("Post %s created.\n", state.PostID)
 	}
+}
+
+// Subreddit Actor
+type SubredditActor struct {
+	Name  string
+	numPosts int
+	Posts map[string]*actor.PID // List of posts in the subreddit.
+	UserList []string
 }
 
 // behavior for sub reddit, to listen to incoming messages
@@ -196,9 +196,6 @@ func (state *SubredditActor) Receive(ctx actor.Context) {
 	}
 
 }
-
-// Post Actor (for simplicity, not making it a full actor here)
-
 
 // Engine Actor (Orchestrator)
 type EngineActor struct {
@@ -352,7 +349,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	content := "user1 sending hi to user2"
 
 	rootContext.Send(enginePID, &DirectMessage{User1: username1, User2: username2, Message: content})
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
 
 	rootContext.Send(enginePID, &Debug{})
 
@@ -373,5 +370,5 @@ func main() {
 
 	// delay main thread for some time,
 	// allow other processes to finish
-	time.Sleep(13 * time.Second) 
+	time.Sleep(8 * time.Second) 
 }
