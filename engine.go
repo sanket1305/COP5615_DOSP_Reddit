@@ -457,7 +457,7 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 }		
 
 
-func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUsers int) {
+func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUsers int, numSubreddits int, membership map[string]int) {
 
 	// creating 10 users
 	for i := 1; i <= numUsers; i++ {
@@ -468,22 +468,22 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	}
 
 	// creating 5 subredits
-	for i := 1; i <= 5; i++ {
+	for i := 1; i <= numSubreddits; i++ {
 		subredditName := fmt.Sprintf("sub%d", i)
 		rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
 	}
 
 	// join subreddit
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= numUsers; i++ {
 		username := fmt.Sprintf("user%d", i)
-		for j := 1; j <= i && j<=5; j++ {
+		for j := 1; j <= i && j<=numSubreddits; j++ {
 			subredditName := fmt.Sprintf("sub%d", j) // Randomly choose from 5 subreddits.
 			rootContext.Send(enginePID, &JoinSubreddit{UserID: username, SubredditName: subredditName})
 		}
 	}
 
-	// post twice in each subreddit respectively
-	for i := 1; i <= 10; i++ {
+	// post in subreddit
+	for i := 1; i <= numUsers; i++ {
 		username := fmt.Sprintf("user%d", i)
 		for j := 1; j <= i && j<=5; j++ {
 			subredditname := fmt.Sprintf("sub%d", j) // choose from user's subreddits.
@@ -524,6 +524,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	subredditname1 := fmt.Sprintf("sub%d", min(max(rand.Intn(u1), 1), 5)) // Randomly choose from user's subreddits.
 	subredditname2 := fmt.Sprintf("sub%d", min(max(rand.Intn(u2), 1), 5)) // Randomly choose from user's subreddits.
 	// time.Sleep(3 * time.Second)
+	_ = membership
 	// fmt.Println(username)
 	// fmt.Println(subredditname)
 	rootContext.Send(enginePID, &LeaveSubreddit{UserID: username1, SubredditName: subredditname1})
@@ -583,7 +584,43 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 
 }
 
+// Seed the random number generator
+func getZipfDistribution(numUsers int, numSubreddits int) map[string]int{
+	rand.NewSource(time.Now().UnixNano())
+
+	// Create a Zipf generator with parameters
+	s := 1.2    // Skewness parameter
+	v := 1.0    // Scaling factor
+	n := uint64(numSubreddits) // Number of subreddits
+
+	zipf := rand.NewZipf(rand.New(rand.NewSource(time.Now().UnixNano())), s, v, n)
+
+	// Simulate subreddit memberships
+	memberships := make(map[string]int)
+	for i := 0; i < numUsers; i++ { // Simulate 100 users joining subreddits
+		subredditIndex := (zipf.Uint64() % uint64(numSubreddits)) + 1 // Generate subreddit index (1-based)
+		subredditName := fmt.Sprintf("sub%d", subredditIndex)
+		memberships[subredditName]++
+	}
+
+	return memberships
+}
+
 func main() {
+	numUsers := 20
+	numSubreddits := 5
+
+	membershipDistribution := getZipfDistribution(numUsers, numSubreddits)
+
+	// Print results
+	fmt.Println("Subreddit Memberships:")
+	for subreddit, count := range membershipDistribution {
+		fmt.Printf("%s: %d members\n", subreddit, count)
+	}
+
+	// this delay added to show zipf distribution and keep it for some time on terminal, then resume actual simulation
+	fmt.Println("Simulation will start in 5 seconds")
+	time.Sleep(5 * time.Second)
 
 	// a central point for our actors and managing their lifecycle
 	system := actor.NewActorSystem() 
@@ -594,9 +631,9 @@ func main() {
 	enginePID := rootContext.Spawn(engineProps)
 
     // initiate simulator
-    simulateUsers(rootContext, enginePID, 10)
+    simulateUsers(rootContext, enginePID, numUsers, numSubreddits, membershipDistribution)
 
 	// delay main thread for some time,
 	// allow other processes to finish
-	time.Sleep(8 * time.Second) 
+	time.Sleep(4 * time.Second) 
 }
