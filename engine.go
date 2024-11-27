@@ -577,7 +577,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 	}
 	
 	// time.Sleep(2 * time.Second)
-	rootContext.Send(enginePID, &DebugComments{})
+	// rootContext.Send(enginePID, &DebugComments{})
 	
 	// Fetch the feed for the subreddit.
 	rootContext.Send(enginePID, &GetFeed{SubredditName: subredditname1})
@@ -607,8 +607,8 @@ func getZipfDistribution(numUsers int, numSubreddits int) map[string]int{
 }
 
 func main() {
-	numUsers := 1000
-	numSubreddits := 20
+	numUsers := 50
+	numSubreddits := 15
 
 	membershipDistribution := getZipfDistribution(numUsers, numSubreddits)
 
