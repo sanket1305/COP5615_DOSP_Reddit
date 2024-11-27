@@ -15,9 +15,9 @@
 	// the value will hold slice[slice].... where each element will indicate, what's the message and it's send by which user
 
 // implement simulator
-// 	simulate as many users as you can (10 at start)
-// 	simulate periods of live connection and disconnection for users
-// 	simulate a zipf ditribution on the number of sub-reddit members.
+// 	simulate as many users as you can (Done)
+// 	simulate periods of live connection and disconnection for users (Done)
+// 	simulate a zipf ditribution on the number of sub-reddit members. (Done)
 // 		for account with a lot of subscribers, increase the number of posts.
 // 		Make some of these messages re-posts
 
