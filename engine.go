@@ -562,7 +562,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 		}
 	}
 
-	time.Sleep(2 * time.Second)
+	// time.Sleep(2 * time.Second)
 
 	// subcomment on posts
 	for i := 1; i <= 5; i++ { 
@@ -576,7 +576,7 @@ func simulateUsers(rootContext *actor.RootContext, enginePID *actor.PID, numUser
 		}
 	}
 	
-	time.Sleep(2 * time.Second)
+	// time.Sleep(2 * time.Second)
 	rootContext.Send(enginePID, &DebugComments{})
 	
 	// Fetch the feed for the subreddit.
@@ -607,8 +607,8 @@ func getZipfDistribution(numUsers int, numSubreddits int) map[string]int{
 }
 
 func main() {
-	numUsers := 20
-	numSubreddits := 5
+	numUsers := 1000
+	numSubreddits := 20
 
 	membershipDistribution := getZipfDistribution(numUsers, numSubreddits)
 
@@ -620,7 +620,7 @@ func main() {
 
 	// this delay added to show zipf distribution and keep it for some time on terminal, then resume actual simulation
 	fmt.Println("Simulation will start in 5 seconds")
-	time.Sleep(5 * time.Second)
+	// time.Sleep(5 * time.Second)
 
 	// a central point for our actors and managing their lifecycle
 	system := actor.NewActorSystem() 
@@ -635,5 +635,5 @@ func main() {
 
 	// delay main thread for some time,
 	// allow other processes to finish
-	time.Sleep(4 * time.Second) 
+	time.Sleep(3 * time.Second) 
 }
