@@ -5,6 +5,8 @@ package main
 
 import (
 	"fmt"
+	// "io"
+	// "encoding/json"
 	// "time"
 	"net/http"
 	"log"
@@ -320,9 +322,10 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 
 	case *RegisterUser:
-		userProps := actor.PropsFromProducer(func() actor.Actor { return &UserActor{ID: msg.Username} })
+		username := "user" + string(len(state.users))
+		userProps := actor.PropsFromProducer(func() actor.Actor { return &UserActor{ID: username} })
 		userPID := ctx.Spawn(userProps)
-		state.users[msg.Username] = userPID
+		state.users[username] = userPID
 		// fmt.Printf("User %s registered.\n", msg.Username)
 	
 	case *CreateSubreddit:
@@ -441,20 +444,56 @@ func main() {
 	engineProps := actor.PropsFromProducer(func() actor.Actor { return NewEngineActor() })
 	enginePID := rootContext.Spawn(engineProps)
 
-	_ = enginePID
-
+	// engine actor is ready for new msgs
 	fmt.Println("Reddit server is live now!!!")
 
 	// mux helps us to deal with api calls and use HandleFunc
 	mux := http.NewServeMux()
 
+	// base calll of rest API, to test if API is up and running 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Welcome to our Reddit !!!")
 	})
 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Welcome to our Reddit !!!")
+	// all user related REST API calls
+	mux.HandleFunc("GET /user/register", func(w http.ResponseWriter, r *http.Request) {
+		rootContext.Send(enginePID, &RegisterUser{})
+	
+		// Log the received message
+		// log.Printf("User %s created", msg)
+	
+		// Respond to the client with a success message
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Registration successfull")
 	})
+
+	// // all user related REST API calls
+	// mux.HandleFunc("GET /user/register", func(w http.ResponseWriter, r *http.Request) {
+	// 	// Read the request body
+	// 	// Read the request body using io.ReadAll
+	// 	body, err := io.ReadAll(r.Body)
+	// 	if err != nil {
+	// 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	defer r.Body.Close()
+	
+	// 	// Unmarshal the JSON data into the Message struct
+	// 	var msg string
+	// 	if err := json.Unmarshal(body, &msg); err != nil {
+	// 		http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
+	// 		return
+	// 	}
+
+	// 	rootContext.Send(enginePID, &RegisterUser{Username: msg})
+	
+	// 	// Log the received message
+	// 	log.Printf("User %s created", msg)
+	
+	// 	// Respond to the client with a success message
+	// 	w.WriteHeader(http.StatusOK)
+	// 	fmt.Fprintf(w, "User %s created", msg)
+	// })
 		
 	// mux.HandleFunc("GET /comment", func(w http.ResponseWriter, r *http.Request) {
 	// 	fmt.Fprintf(w, "return all comments")
