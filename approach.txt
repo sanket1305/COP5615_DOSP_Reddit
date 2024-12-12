@@ -1,0 +1,29 @@
+files
+    "runner.sh" - this file will be used to trigger a set of clients... 5 in our case
+    "client.go" - this will contain the methods for making http requests
+    "client1.go, client2.go,.... client5.go" - this file will hold the respective clients and there set of requests
+    "server.go" - this will hold all the REST APIs (along with engine code) and will act as server
+
+development
+    stage1:
+        build the "server.go"
+            reddit engine
+            APIs
+            integrate both and test it using curl command
+    stage2:
+        build the "client.go"
+        build each of clients... client1, client2
+            only call to showreddits
+    stage3:
+        build "runner.sh"
+            add all commands to execute above programs parallely
+    stage4:
+        prepare requests sequence on paper for all clients
+        embed them in code of respective files
+        add delays in runner.sh between each client file call
+    stage5:
+        compare logs of each of the go executed file
+        verify if everything is going well
+    stage6:
+        plan for video
+        record video
