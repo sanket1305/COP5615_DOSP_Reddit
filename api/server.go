@@ -67,6 +67,10 @@ type PostinSubreddit struct{
 	downvotes		int
 }
 
+type ResponsePosts struct {
+	posts []PostinSubreddit
+}
+
 type Upvote struct {
 	User string
 	Subreddit string
@@ -219,9 +223,18 @@ func (state *PostActor) Receive(ctx actor.Context) {
 		fmt.Println(state.Comments)
 	
 	case *GetFeed:
-		fmt.Println(state.UserID)
-		fmt.Println(state.Content)
-		fmt.Printf("The total number of comments + sub comments are %d\n", state.numComments)
+		response := &PostinSubreddit{
+			PostID: state.PostID,
+			UserID: state.UserID,
+			Content: state.Content,
+			upvotes: state.upvotes,
+			downvotes: state.downvotes,
+		}
+		// fmt.Println(state.UserID)
+		// fmt.Println(state.Content)
+		// fmt.Printf("The total number of comments + sub comments are %d\n", state.numComments)
+
+		ctx.Respond(response)
 	}
 }
 
@@ -302,10 +315,35 @@ func (state *SubredditActor) Receive(ctx actor.Context) {   // , rootContext *ac
 		}
 
 	case *GetFeed:
+		arr := []PostinSubreddit{}
 		fmt.Printf("Fetching feed for subreddit %s\n", state.Name)
-		for _, post := range state.Posts {
-			ctx.Send(post, &GetFeed{})
+		for _, postID := range state.Posts {
+			// ctx.Send(postID, &GetFeed{})
+
+			// Forward message to subreddit actor and wait for response
+			future := ctx.RequestFuture(postID, &GetFeed{}, 5*time.Second)
+			result, err := future.Result()
+			if err != nil {
+				fmt.Println("Engine actor failed to get response from subreddit actor:", err)
+				ctx.Respond(&Response{Message: "Error from subreddit actor"})
+				return
+			}
+			
+			if response, ok := result.(*PostinSubreddit); ok {
+				arr = append(arr, PostinSubreddit{
+					PostID: response.PostID,
+					Content: response.Content,
+					UserID: response.UserID,
+					SubredditName: response.SubredditName,
+					upvotes: response.upvotes,
+					downvotes: response.downvotes,
+				})
+			}
 		}
+
+		resp := &ResponsePosts{posts: arr}
+
+		ctx.Respond(resp) // Respond back to the original sender (REST API)
 	}
 }
 
@@ -451,11 +489,27 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	
 	case *GetFeed:
 		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
-			ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
+			// ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
 			fmt.Printf("Fetching feed for subreddit %s.\n", msg.SubredditName)
 			
-			response := &Response{Message: "Here is your feed"}
-			ctx.Respond(response) // Respond back to the sender
+			// response := &Response{Message: "Here is your feed"}
+			// ctx.Respond(response) // Respond back to the sender
+
+			// Forward message to subreddit actor and wait for response
+			future := ctx.RequestFuture(subredditPID, &GetFeed{SubredditName: msg.SubredditName}, 5*time.Second)
+			result, err := future.Result()
+			if err != nil {
+				fmt.Println("Engine actor failed to get response from subreddit actor:", err)
+				ctx.Respond(&Response{Message: "Error from subreddit actor"})
+				return
+			}
+			
+			if response, ok := result.(*ResponsePosts); ok {
+				ctx.Respond(response) // Respond back to the original sender (REST API)
+			} else {
+				fmt.Println("Engine Actor received unexpected response type from Subreddit Actor")
+				ctx.Respond(&Response{Message: "Unexpected response type from Subreddit Actor"})
+			}
 		} else {
 			fmt.Printf("Subreddit %s not found. from EngineActor via GetFeed\n", msg.SubredditName)
 		}
@@ -699,7 +753,15 @@ func main() {
 
 		switch response := result.(type) {
 		case *Response:
-			fmt.Println("Received response from actor:", response.Message)
+			// there might be error in response type Response struct. As we send this format error from other actors
+			fmt.Println("Received error from actor:", response.Message)
+			// new_Response := &ResponsePosts{}
+			c.JSON(http.StatusOK, response)
+		case *ResponsePosts:
+			// this is actual response format expected for this request
+			fmt.Println("Received response from engine actor:", response.posts)
+			new_Response := &ResponsePosts{posts: response.posts}
+			fmt.Println("Received response from engine actor:", new_Response.posts)
 			c.JSON(http.StatusOK, response)
 		default:
 			fmt.Printf("Unexpected response type: %T\n", result)

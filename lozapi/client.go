@@ -20,6 +20,19 @@ func NewClient(baseUrl string, httpClient *http.Client) *Client {
 	}
 }
 
+type PostinSubreddit struct{
+	PostID			string
+	Content			string
+	UserID			string
+	SubredditName	string
+	upvotes			int
+	downvotes		int
+}
+
+type ResponsePosts struct {
+	posts []PostinSubreddit
+}
+
 type Arr struct {
 	Arr []string
 }
@@ -185,10 +198,10 @@ func (c *Client) CommentInSubreddit(userName string, subredditName string, post 
 }
 
 
-func (c *Client) GetFeed(subredditName string) (*Message, error) {
+func (c *Client) GetFeed(subredditName string) error {
 	req, err := http.NewRequest("GET", c.baseUrl+"subreddit/feed", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+		return fmt.Errorf("failed to create subreddit request: %v", err)
 	}
 
 	reqUrl := req.URL
@@ -198,16 +211,40 @@ func (c *Client) GetFeed(subredditName string) (*Message, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+		return fmt.Errorf("failed to submit subreddit http request: %v", err)
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var message Message
-	if err := json.NewDecoder(resp.Body).Decode(&message); err != nil {
-		return nil, fmt.Errorf("failed to read http response: %v", err)
+	// as different type of responses are expected
+	// first get raaw json
+	var rawResponse json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&rawResponse); err != nil {
+		return fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return &message, nil
+	// now first check if repsonse type is ResponsePosts
+	var responsePosts ResponsePosts
+	if err := json.Unmarshal(rawResponse, &responsePosts); err == nil && len(responsePosts.posts) > 0 {
+		fmt.Println("Received posts:")
+		for _, post := range responsePosts.posts {
+			fmt.Printf("ID: %s, Content: %s\n", post.PostID, post.Content)
+		}
+		return nil
+	}
+
+	var errorResponse Message
+	if err := json.Unmarshal(rawResponse, &errorResponse); err == nil && errorResponse.Message != "" {
+		fmt.Println("Received error message:", errorResponse.Message)
+		return nil
+	}
+
+	// var arr PostArr
+	// if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
+	// 	return fmt.Errorf("failed to read http response: %v", err)
+	// }
+
+	// return &arr, nil
+	return nil
 }
 
 

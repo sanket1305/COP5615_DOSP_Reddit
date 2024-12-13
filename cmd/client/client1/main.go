@@ -73,7 +73,15 @@ func main() {
 	fmt.Printf("%s\n", response.Message)
 
 	// 5. Post in subreddit "USA"
-	response, err = client.PostInSubreddit(username, "USA", "falana falana")
+	response, err = client.PostInSubreddit(username, "USA", "falana")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s\n", response.Message)
+
+	// 5. Post in subreddit "USA"
+	response, err = client.PostInSubreddit(username, "USA", "chin")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -81,6 +89,19 @@ func main() {
 	fmt.Printf("%s\n", response.Message)
 
 	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
+	// this code is same code in 2.
+	response_slice, err_slice = client.GetListOfAvailableSubreddits()
+	if err_slice != nil {
+		log.Fatal(err_slice)
+	}
+
+	if len(response_slice.Arr) == 0 {
+		fmt.Println("No subreddits available at the moment. You can create a new one though :)")
+	} else {
+		for _, subre := range response_slice.Arr {
+			fmt.Printf("%+v\n", subre)
+		}
+	}
 
 	// 7. getPosts (from any of the subreddits we have got above)
 
@@ -109,12 +130,12 @@ func main() {
 	fmt.Printf("%s\n", response.Message)
 
 	// get all posts in subreddit
-	response, err = client.GetFeed("USA")
-	if err != nil {
-		log.Fatal(err)
+	err_list_post := client.GetFeed("USA")
+	if err_list_post != nil {
+		log.Fatal(err_list_post)
 	}
 
-	fmt.Printf("%s\n", response.Message)
+	// fmt.Printf("%v\n", response_list_post)
 
 	// Leave subreddit
 	response, err = client.LeaveSubreddit(username, "USA")
