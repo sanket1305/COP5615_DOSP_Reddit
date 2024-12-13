@@ -1,17 +1,15 @@
 package main
 
-// steps
-	// as soon as server starts make engine actor up and running
-
 import (
 	"fmt"
-	// "io"
-	// "encoding/json"
 	// "time"
-	"net/http"
+	"encoding/json"
+	"strconv"
 	"log"
 	"math/rand"
+	"net/http"
 
+    "github.com/gin-gonic/gin"
 	"github.com/asynkron/protoactor-go/actor"
 )
 
@@ -23,6 +21,11 @@ func contains(slice []string, value string) bool {
 		}
 	}
 	return false
+}
+
+// for sending string responses
+type Response struct {
+    Message string `json:"message"`
 }
 
 // for debuging
@@ -322,10 +325,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	switch msg := ctx.Message().(type) {
 
 	case *RegisterUser:
-		username := "user" + string(len(state.users))
-		userProps := actor.PropsFromProducer(func() actor.Actor { return &UserActor{ID: username} })
+		userProps := actor.PropsFromProducer(func() actor.Actor { return &UserActor{ID: msg.Username} })
 		userPID := ctx.Spawn(userProps)
-		state.users[username] = userPID
+		state.users[msg.Username] = userPID
 		// fmt.Printf("User %s registered.\n", msg.Username)
 	
 	case *CreateSubreddit:
@@ -395,7 +397,15 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		}
 	
 	case *Debug:
-		fmt.Println(state.msgs)
+		// fmt.Println(state.msgs)
+		fmt.Println(len(state.users))
+		for index, value := range state.users {
+			fmt.Printf("Index: %v, Value: %v\n", index, value)
+		}
+		fmt.Println(len(state.subreddits))
+		for index, value := range state.subreddits {
+			fmt.Printf("Index: %v, Value: %v\n", index, value)
+		}
 	
 	case *DebugComments:
 		subredditname := "sub2"
@@ -433,82 +443,147 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	default:
 		log.Println("Unknown message type received")
 	}
-}		
+}
+
+// ---------------------------- REST API FUNCTIONS START ---------------------------------
+
+// Handler function to register new user
+// func registerUser(c *gin.Context) {
+//     c.JSON(http.StatusOK, users)
+// }
+
+// ---------------------------- REST API FUNCTIONS END ---------------------------------
 
 func main() {
+	userCount := 0
 	// a central point for our actors and managing their lifecycle
 	system := actor.NewActorSystem() 
 	rootContext := system.Root
 
-	// defining the properties of actor and using it to spawn an instance
+	// defining the properties of actor anf using it to spawn an instance
 	engineProps := actor.PropsFromProducer(func() actor.Actor { return NewEngineActor() })
 	enginePID := rootContext.Spawn(engineProps)
 
 	// engine actor is ready for new msgs
 	fmt.Println("Reddit server is live now!!!")
 
-	// mux helps us to deal with api calls and use HandleFunc
-	mux := http.NewServeMux()
+	// Create a Gin router
+    router := gin.Default()
 
-	// base calll of rest API, to test if API is up and running 
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Welcome to our Reddit !!!")
+	// Define routes
+    router.GET("/user/register", func(c *gin.Context) {
+		userCount += 1
+		username := "user" + strconv.Itoa(userCount)
+		rootContext.Send(enginePID, &RegisterUser{Username: username})
+
+		// Create an instance of the Response struct
+		response := Response{
+			Message: username + " is registered",
+		}
+	
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
 	})
 
-	// all user related REST API calls
-	mux.HandleFunc("GET /user/register", func(w http.ResponseWriter, r *http.Request) {
-		rootContext.Send(enginePID, &RegisterUser{})
+	router.GET("/", func(c *gin.Context) {
+		rootContext.Send(enginePID, &Debug{})
+
+		response := Response{
+			Message: "deubg called",
+		}
 	
-		// Log the received message
-		// log.Printf("User %s created", msg)
-	
-		// Respond to the client with a success message
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "Registration successfull")
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
 	})
 
-	// // all user related REST API calls
-	// mux.HandleFunc("GET /user/register", func(w http.ResponseWriter, r *http.Request) {
-	// 	// Read the request body
-	// 	// Read the request body using io.ReadAll
-	// 	body, err := io.ReadAll(r.Body)
-	// 	if err != nil {
-	// 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
-	// 		return
-	// 	}
-	// 	defer r.Body.Close()
+	router.GET("/subreddit/create", func(c *gin.Context) {
+		// req should contain {subredditname: string}
+		subredditName := c.Query("subredditname")
+
+		rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
+
+		response := Response{
+			Message: "subreddit created",
+		}
 	
-	// 	// Unmarshal the JSON data into the Message struct
-	// 	var msg string
-	// 	if err := json.Unmarshal(body, &msg); err != nil {
-	// 		http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
-	// 		return
-	// 	}
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
 
-	// 	rootContext.Send(enginePID, &RegisterUser{Username: msg})
+		c.JSON(http.StatusOK, jsonData)
+	})
+
+	router.GET("/subreddit/join", func(c *gin.Context) {
+		// req should contain {subredditname: string}
+		subredditName := c.Query("subredditname")
+		userName := c.Query("username")
+
+		// fmt.Println(subredditName)
+		// fmt.Println(userName)
+
+		rootContext.Send(enginePID, &JoinSubreddit{UserID: userName, SubredditName: subredditName})	
+
+		response := Response{
+			Message: "subreddit joined",
+		}
 	
-	// 	// Log the received message
-	// 	log.Printf("User %s created", msg)
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
+	})
+
+	router.GET("/subreddit/leave", func(c *gin.Context) {
+		// req should contain {subredditname: string}
+		subredditName := c.Query("subredditname")
+		userName := c.Query("username")
+
+		fmt.Println(subredditName)
+		fmt.Println(userName)
+
+		rootContext.Send(enginePID, &LeaveSubreddit{UserID: userName, SubredditName: subredditName})
+
+		response := Response{
+			Message: "subreddit left",
+		}
 	
-	// 	// Respond to the client with a success message
-	// 	w.WriteHeader(http.StatusOK)
-	// 	fmt.Fprintf(w, "User %s created", msg)
-	// })
-		
-	// mux.HandleFunc("GET /comment", func(w http.ResponseWriter, r *http.Request) {
-	// 	fmt.Fprintf(w, "return all comments")
-	// })
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
 
-	// mux.HandleFunc("GET /comment/{id}", func(w http.ResponseWriter, r *http.Request) {
-	// 	id := r.PathValue("id")
-	// 	fmt.Fprintf(w, "return a single comment for comment with id: %s", id)
-	// })
+		c.JSON(http.StatusOK, jsonData)
+	})
 
-	// mux.HandleFunc("POST /comment", func(w http.ResponseWriter, r *http.Request) {
-	// 	fmt.Fprintf(w, "post a new comments")
-	// })
+    // router.POST("/user/karma", getUserKarma)
+	// router.POST("/user/messaging", sendMessage)
+	// // router.GET("/user/listsubeddits", addUser)
+	// Done... router.POST("/subreddit/create", createSubred)
+	// Done... router.POST("/subreddit/join", joinSubred)
+	// Done... router.POST("/subreddit/leave", leaveSubred)
+	// router.POST("/subreddit/post", postSubred)
+	// router.POST("/subreddit/comment", commentSubred)
+	// router.POST("/subreddit/feed", feedSubred)
+	// // router.GET("/subreddit/listusers", addUser)
+	// router.POST("/post/upvote", upvotePost)
+	// router.POST("/post/downvote", downvotePost)
 
-	if err := http.ListenAndServe("localhost:8080", mux); err != nil {
-		fmt.Println(err.Error())
-	}
+    // Start the server on port 8080
+    router.Run("localhost:8080")
 }
