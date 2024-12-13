@@ -456,6 +456,8 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 
 	case *DirectMessage:
 		// create keys for searching in
+		recipient := msg.User2
+
 		key := [2]string{msg.User1, msg.User2}
 		key_rev := [2]string{msg.User2, msg.User1}
 
@@ -474,6 +476,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			value = append(value, newMessage)
 			state.msgs[key] = value
 		}
+
+		response := &Response{Message: "Message Sent to "+ recipient + " successfully."}
+		ctx.Respond(response)
 	
 	case *DisplayMessages:
 		user := msg.User
@@ -884,11 +889,37 @@ func main() {
 		}
 	})
 
+	// API to get all feeds from subreddit
+	router.GET("/user/sendmessage", func(c *gin.Context) {
+		// req should contain {username: string}
+		userName1 := c.Query("sender")
+		userName2 := c.Query("receiver")
+		message := c.Query("message")
+
+		future := rootContext.RequestFuture(enginePID, &DirectMessage{User1: userName1, User2: userName2, Message: message}, 5*time.Second)
+
+		result, err := future.Result()
+		if err != nil {
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
+		}
+
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
+	})
+
 	// Client Done... router.GET("/user/register")
 	// Client Done... router.GET("/user/list")
     // router.POST("/user/karma")
-	// router.GET("/user/inbox")
-	// router.GET("/user/sendmessage")
+	// Done... router.GET("/user/inbox")
+	// Done... router.GET("/user/sendmessage")
 	// // router.GET("/user/listsubeddits")
 	// Client Done... router.GET("/subreddit/create")
 	// Client Done... router.GET("/subreddit/join")

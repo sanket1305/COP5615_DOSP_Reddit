@@ -20,6 +20,11 @@ func NewClient(baseUrl string, httpClient *http.Client) *Client {
 	}
 }
 
+type DisplayMessages struct {
+	User string
+	Conversation map[string][][]string
+}
+
 type PostinSubreddit struct{
 	PostID			string
 	Content			string
@@ -290,7 +295,7 @@ func (c *Client) GetListOfAvailableUsers() (*Arr, error) {
 }
 
 
-func (c *Client) CheckInbox(username string) (*Arr, error) {
+func (c *Client) CheckInbox(username string) (*DisplayMessages, error) {
 	req, err := http.NewRequest("GET", c.baseUrl+"user/inbox", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
@@ -307,11 +312,39 @@ func (c *Client) CheckInbox(username string) (*Arr, error) {
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var arr Arr
-	if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
+	var disp DisplayMessages
+	if err := json.NewDecoder(resp.Body).Decode(&disp); err != nil {
 		return nil, fmt.Errorf("failed to read http response: %v", err)
 	}
 
-	return &arr, nil
+	return &disp, nil
+}
+
+
+func (c *Client) SendMessage(sender string, receiver string, message string) (*Message, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"user/sendmessage", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+	}
+
+	reqUrl := req.URL
+	queryParams := req.URL.Query()
+	queryParams.Set("sender", sender)
+	queryParams.Set("receiver", receiver)
+	queryParams.Set("message", message)
+	reqUrl.RawQuery = queryParams.Encode()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var msg Message
+	if err := json.NewDecoder(resp.Body).Decode(&msg); err != nil {
+		return nil, fmt.Errorf("failed to read http response: %v", err)
+	}
+
+	return &msg, nil
 }
 

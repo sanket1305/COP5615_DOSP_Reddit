@@ -27,6 +27,10 @@ import (
 // 14. get posts from other subreddit
 // 15. get messages
 
+func delay() {
+	time.Sleep(2 * time.Second)
+}
+
 func main() {
 	// create instance of client to call different APIs
 	client := lozapi.NewClient(lozapi.BaseUrl, &http.Client{
@@ -40,6 +44,8 @@ func main() {
 	}
 
 	fmt.Printf("%s\n", response.Message)
+
+	delay()
 
 	// 2. getListofsubreddits
 	response_slice, err_slice := client.GetListOfAvailableSubreddits()
@@ -55,6 +61,8 @@ func main() {
 		}
 	}
 
+	delay()
+
 	// 3. create subreddit "USA"
 	response, err = client.CreateSubreddit("USA")
 	if err != nil {
@@ -64,6 +72,8 @@ func main() {
 	fmt.Printf("%s\n", response.Message)
 	username := "user1"
 
+	delay()
+
 	// 4. join subreddit "USA"
 	response, err = client.JoinSubreddit(username, "USA")
 	if err != nil {
@@ -72,6 +82,8 @@ func main() {
 
 	fmt.Printf("%s\n", response.Message)
 
+	delay()
+
 	// 5. Post in subreddit "USA"
 	response, err = client.PostInSubreddit(username, "USA", "falana")
 	if err != nil {
@@ -79,6 +91,8 @@ func main() {
 	}
 
 	fmt.Printf("%s\n", response.Message)
+
+	delay()
 
 	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
 	// this code is same code in 2.
@@ -95,6 +109,8 @@ func main() {
 		}
 	}
 
+	delay()
+
 	// 7. getPosts (from any of the subreddits we have got above) --- make it random selection as we have entire list above
 	// no response will be taken here, 
 	// output will be printed inside the method GetFeed()
@@ -102,6 +118,8 @@ func main() {
 	if err_list_post != nil {
 		log.Fatal(err_list_post)
 	}
+
+	delay()
 
 	// 8. add comment (for above post) -- post is hardcoded right now
 	// we should now get random post above and make a comment on it
@@ -111,6 +129,8 @@ func main() {
 	}
 
 	fmt.Printf("%s\n", response.Message)
+
+	delay()
 
 	// 9. repeat 6 and 7
 	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
@@ -128,6 +148,8 @@ func main() {
 		}
 	}
 
+	delay()
+
 	// 7. getPosts (from any of the subreddits we have got above)
 	// no response will be taken here, 
 	// output will be printed inside the method GetFeed()
@@ -136,16 +158,52 @@ func main() {
 		log.Fatal(err_list_post)
 	}
 
+	delay()
+
 	// 10. get message (by now this should have received some message from client2 as it sends msg to all availble clients)
 	response_inbox, err_inbox := client.CheckInbox("user1")
 	if err_inbox != nil {
 		log.Fatal(err_inbox)
 	}
 
-	fmt.Printf("%v\n", response_inbox)
+	for key, value := range response_inbox.Conversation {
+		fmt.Printf("----- Displaying conversation with %s ------", key)
+		for _, i := range value {
+			if i[0] == key {
+				fmt.Printf("Incoming... %s", i[1])
+			} else {
+				fmt.Printf("Ougoing... %s", i[2])
+			}
+		}
+	}
 
+	delay()
 
 	// 11. respond to message
+	response, err = client.SendMessage("user1", "user2", "Heyy")
+	if err != nil {
+		log.Fatal(err_inbox)
+	}
+
+	fmt.Printf("%v\n", response.Message)
+
+	response_inbox, err_inbox = client.CheckInbox("user1")
+	if err_inbox != nil {
+		log.Fatal(err_inbox)
+	}
+
+	for key, value := range response_inbox.Conversation {
+		fmt.Printf("----- Displaying conversation with %s ------\n", key)
+		for _, i := range value {
+			if i[0] == key {
+				fmt.Printf("Incoming... %s\n", i[1])
+			} else {
+				fmt.Printf("Ougoing... %s\n", i[1])
+			}
+		}
+	}
+
+	delay()
 	
 	// 12. repeat 6
 	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
@@ -163,6 +221,8 @@ func main() {
 		}
 	}
 
+	delay()
+
 	// 13. get user list
 	response_slice, err_slice = client.GetListOfAvailableUsers()
 	if err_slice != nil {
@@ -177,7 +237,11 @@ func main() {
 		}
 	}
 
+	time.Sleep(2 * time.Second)
+
 	// 14. get messages
+
+	time.Sleep(2 * time.Second)
 
 	// 15. leave subreddit
 	response, err = client.LeaveSubreddit(username, "USA")
