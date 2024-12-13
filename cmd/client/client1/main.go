@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"math/rand"
 	"time"
 
 	"reddit_client_server/lozapi"
@@ -32,6 +33,12 @@ func delay() {
 }
 
 func main() {
+	// use this fields to hold response received from apis
+	// so that we can pass this values to subsequent api calls
+	userName := ""
+	subredditName := ""
+	recipient := ""
+
 	// create instance of client to call different APIs
 	client := lozapi.NewClient(lozapi.BaseUrl, &http.Client{
 		Timeout: 10 * time.Second,
@@ -43,7 +50,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("%s\n", response.Message)
+	userName = response.Message
+	fmt.Printf("Registration Successful!!! Your userName is %s\n", userName)
 
 	delay()
 
@@ -64,18 +72,18 @@ func main() {
 	delay()
 
 	// 3. create subreddit "USA"
-	response, err = client.CreateSubreddit("USA")
+	subredditName = "USA"
+	response, err = client.CreateSubreddit(subredditName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	fmt.Printf("%s\n", response.Message)
-	username := "user1"
 
 	delay()
 
 	// 4. join subreddit "USA"
-	response, err = client.JoinSubreddit(username, "USA")
+	response, err = client.JoinSubreddit(userName, subredditName)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,7 +93,7 @@ func main() {
 	delay()
 
 	// 5. Post in subreddit "USA"
-	response, err = client.PostInSubreddit(username, "USA", "falana")
+	response, err = client.PostInSubreddit(userName, subredditName, "falana")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -107,14 +115,24 @@ func main() {
 		for _, subre := range response_slice.Arr {
 			fmt.Printf("%+v\n", subre)
 		}
+		// now we will try to pick some random subreddit
+		// and interact with it in subsequent APIs
+		// Create a new random generator with a seed based on the current time
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		// Generate a random index within the bounds of the slice
+		randomIndex := r.Intn(len(response_slice.Arr))
+
+		// Select the random element from the slice
+		subredditName = response_slice.Arr[randomIndex]
 	}
 
 	delay()
 
-	// 7. getPosts (from any of the subreddits we have got above) --- make it random selection as we have entire list above
+	// 7. getPosts (from any of the subreddits we have got above)
 	// no response will be taken here, 
 	// output will be printed inside the method GetFeed()
-	err_list_post := client.GetFeed("USA")
+	err_list_post := client.GetFeed(subredditName)
 	if err_list_post != nil {
 		log.Fatal(err_list_post)
 	}
@@ -123,7 +141,7 @@ func main() {
 
 	// 8. add comment (for above post) -- post is hardcoded right now
 	// we should now get random post above and make a comment on it
-	response, err = client.CommentInSubreddit(username, "USA", "post1", "No comments please!!!")
+	response, err = client.CommentInSubreddit(userName, subredditName, "post1", "I agree with you")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -146,6 +164,16 @@ func main() {
 		for _, subre := range response_slice.Arr {
 			fmt.Printf("%+v\n", subre)
 		}
+		// now we will try to pick some random subreddit
+		// and interact with it in subsequent APIs
+		// Create a new random generator with a seed based on the current time
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		// Generate a random index within the bounds of the slice
+		randomIndex := r.Intn(len(response_slice.Arr))
+
+		// Select the random element from the slice
+		subredditName = response_slice.Arr[randomIndex]
 	}
 
 	delay()
@@ -153,7 +181,7 @@ func main() {
 	// 7. getPosts (from any of the subreddits we have got above)
 	// no response will be taken here, 
 	// output will be printed inside the method GetFeed()
-	err_list_post = client.GetFeed("USA")
+	err_list_post = client.GetFeed(subredditName)
 	if err_list_post != nil {
 		log.Fatal(err_list_post)
 	}
@@ -161,12 +189,13 @@ func main() {
 	delay()
 
 	// 10. get message (by now this should have received some message from client2 as it sends msg to all availble clients)
-	response_inbox, err_inbox := client.CheckInbox("user1")
+	response_inbox, err_inbox := client.CheckInbox(userName)
 	if err_inbox != nil {
 		log.Fatal(err_inbox)
 	}
 
 	for key, value := range response_inbox.Conversation {
+		recipient = value[0][0]
 		fmt.Printf("----- Displaying conversation with %s ------", key)
 		for _, i := range value {
 			if i[0] == key {
@@ -180,7 +209,7 @@ func main() {
 	delay()
 
 	// 11. respond to message
-	response, err = client.SendMessage("user1", "user2", "Heyy")
+	response, err = client.SendMessage(userName, recipient, "Heyy")
 	if err != nil {
 		log.Fatal(err_inbox)
 	}
@@ -190,17 +219,6 @@ func main() {
 	response_inbox, err_inbox = client.CheckInbox("user1")
 	if err_inbox != nil {
 		log.Fatal(err_inbox)
-	}
-
-	for key, value := range response_inbox.Conversation {
-		fmt.Printf("----- Displaying conversation with %s ------\n", key)
-		for _, i := range value {
-			if i[0] == key {
-				fmt.Printf("Incoming... %s\n", i[1])
-			} else {
-				fmt.Printf("Ougoing... %s\n", i[1])
-			}
-		}
 	}
 
 	delay()
@@ -237,14 +255,26 @@ func main() {
 		}
 	}
 
-	time.Sleep(2 * time.Second)
+	delay()
 
 	// 14. get messages
 
-	time.Sleep(2 * time.Second)
+	for key, value := range response_inbox.Conversation {
+		fmt.Printf("----- Displaying conversation with %s ------\n", key)
+		for _, i := range value {
+			if i[0] == key {
+				fmt.Printf("Incoming... %s\n", i[1])
+			} else {
+				fmt.Printf("Ougoing... %s\n", i[1])
+			}
+		}
+		fmt.Printf("----- End of Displaying conversation with %s ------\n", key)
+	}
+
+	delay()
 
 	// 15. leave subreddit
-	response, err = client.LeaveSubreddit(username, "USA")
+	response, err = client.LeaveSubreddit(userName, "USA")
 	if err != nil {
 		log.Fatal(err)
 	}

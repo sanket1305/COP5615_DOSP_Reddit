@@ -640,6 +640,7 @@ func main() {
 		switch response := result.(type) {
 		case *Response:
 			fmt.Println("Received response from actor:", response.Message)
+			response.Message = username
 			c.JSON(http.StatusOK, response)
 		default:
 			fmt.Printf("Unexpected response type: %T\n", result)
