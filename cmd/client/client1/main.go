@@ -14,7 +14,7 @@ import (
 // 1. register
 // 2. getListOfsubreddits
 // 3. createSubreddit "USA"
-// 4. JoinSubreddit
+// 4. JoinSubreddit "USA"
 // 5. MakePost
 // 6. getListOfsubreddits
 // 7. getPosts from other subreddit
@@ -80,14 +80,6 @@ func main() {
 
 	fmt.Printf("%s\n", response.Message)
 
-	// 5. Post in subreddit "USA"
-	response, err = client.PostInSubreddit(username, "USA", "chin")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("%s\n", response.Message)
-
 	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
 	// this code is same code in 2.
 	response_slice, err_slice = client.GetListOfAvailableSubreddits()
@@ -103,7 +95,7 @@ func main() {
 		}
 	}
 
-	// 7. getPosts (from any of the subreddits we have got above)
+	// 7. getPosts (from any of the subreddits we have got above) --- make it random selection as we have entire list above
 	// no response will be taken here, 
 	// output will be printed inside the method GetFeed()
 	err_list_post := client.GetFeed("USA")
@@ -112,6 +104,7 @@ func main() {
 	}
 
 	// 8. add comment (for above post) -- post is hardcoded right now
+	// we should now get random post above and make a comment on it
 	response, err = client.CommentInSubreddit(username, "USA", "post1", "No comments please!!!")
 	if err != nil {
 		log.Fatal(err)

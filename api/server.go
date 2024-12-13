@@ -805,7 +805,7 @@ func main() {
 	// Client Done... router.GET("/subreddit/leave", leaveSubred)
 	// Client Done... router.GET("/subreddit/post", postSubred)
 	// Client Done... router.GET("/subreddit/post/comment", commentSubred)
-	// Client Done (return all feeds is left)... router.GET("/subreddit/feed", feedSubred)
+	// Client Done... router.GET("/subreddit/feed", feedSubred)
 	// // router.GET("/subreddit/listusers", addUser)
 	// router.POST("/subreddit/post/upvote", upvotePost)
 	// router.POST("/subreddit/post/downvote", downvotePost)
