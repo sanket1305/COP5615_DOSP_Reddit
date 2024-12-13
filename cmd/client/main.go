@@ -1,12 +1,12 @@
 package main
 
-
 import (
-	"reddit_client_server/lozapi"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
+
+	"reddit_client_server/lozapi"
 )
 
 func main() {
@@ -14,12 +14,10 @@ func main() {
 		Timeout: 10 * time.Second,
 	})
 
-	response, err := client.GetMosters()
+	response, err := client.GetMonsters()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// for _, monster := range response.Data {
-		fmt.Printf("%+v\n", response.Data)
-	// }
+	fmt.Printf("Message: %s\n", response.Message)
 }

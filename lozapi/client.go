@@ -1,6 +1,5 @@
 package lozapi
 
-
 import (
 	"encoding/json"
 	"fmt"
@@ -10,41 +9,37 @@ import (
 const BaseUrl = "http://localhost:8080/"
 
 type Client struct {
-	baseUrl		string			// base url remains the same, routing apis addresses becomes different based on each request
-	httpClient	*http.Client	// standard library in go lang
+	baseUrl    string
+	httpClient *http.Client
 }
 
 func NewClient(baseUrl string, httpClient *http.Client) *Client {
 	return &Client{
-		baseUrl: baseUrl,
+		baseUrl:    baseUrl,
 		httpClient: httpClient,
 	}
 }
 
 type Monster struct {
-	Message			string
+	Message string `json:"Message"` // Ensure field names match JSON keys
 }
 
-type GetMosterResponse struct {
-	Data Monster
-}
-
-func (c *Client) GetMosters() (*GetMosterResponse, error) {
-	req, err := http.NewRequest("GET", c.baseUrl + "user/register", nil)
+func (c *Client) GetMonsters() (*Monster, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"user/register", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create mosters request: %m", err)
+		return nil, fmt.Errorf("failed to create monsters request: %v", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to submit mosters http request: %m", err)
+		return nil, fmt.Errorf("failed to submit monsters http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var monster Monster
+	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal monsters http response: %v", err)
 	}
 
-	var response *GetMosterResponse
-	fmt.Printf("%m", resp.Body)
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal monsters http response: %m", err)
-	}
-
-	return response, nil
+	return &monster, nil
 }
