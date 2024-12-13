@@ -480,12 +480,16 @@ func main() {
 		response := Response{
 			Message: username + " is registered",
 		}
+
+		fmt.Println(response)
 	
 		// Marshal the struct to JSON
 		jsonData, err := json.Marshal(response)
 		if err != nil {
 			log.Fatalf("Error marshalling JSON: %v", err)
 		}
+
+		fmt.Println(string(jsonData))
 
 		c.JSON(http.StatusOK, jsonData)
 	})
@@ -567,6 +571,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Error marshalling JSON: %v", err)
 		}
+		
 
 		c.JSON(http.StatusOK, jsonData)
 	})
