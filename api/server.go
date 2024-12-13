@@ -405,6 +405,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	case *MakeComment:
 		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
 			ctx.Send(subredditPID, &MakeComment{User: msg.User, Post: msg.Post, CommentTxt: msg.CommentTxt, ParentComment: msg.ParentComment})
+
+			response := &Response{Message: "You have added comment " + msg.CommentTxt}
+			ctx.Respond(response) // Respond back to the sender
 		} else {
 			fmt.Printf("Subreddit %s not found. from EngineActor via MakeComment\n", msg.Subreddit)
 		}
@@ -631,31 +634,32 @@ func main() {
 		}
 	})
 
+	// API to comment on post in subreddit
 	router.GET("/subreddit/post/comment", func(c *gin.Context) {
-		// req should contain {subredditname: string}
+		// req should contain {subredditname: string, username: string, postid: string, comment: string}
 		subredditName := c.Query("subredditname")
 		userName := c.Query("username")
 		post := c.Query("post")
 		commentTxt := c.Query("comment")
 
-		fmt.Println(subredditName)
-		fmt.Println(userName)
-		fmt.Println(post)
-		fmt.Println(commentTxt)
+		// rootContext.Send(enginePID, &MakeComment{User: userName, Subreddit: subredditName, Post: post, CommentTxt: commentTxt})
+		future := rootContext.RequestFuture(enginePID, &MakeComment{User: userName, Subreddit: subredditName, Post: post, CommentTxt: commentTxt}, 5*time.Second)
 
-		rootContext.Send(enginePID, &MakeComment{User: userName, Subreddit: subredditName, Post: post, CommentTxt: commentTxt})
-
-		response := Response{
-			Message: "post made in subreddit",
-		}
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
+		result, err := future.Result()
 		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
 		}
 
-		c.JSON(http.StatusOK, jsonData)
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
 	})
 
 	router.GET("/subreddit/feed", func(c *gin.Context) {
@@ -687,7 +691,7 @@ func main() {
 	// Client Done... router.GET("/subreddit/join", joinSubred)
 	// Client Done... router.GET("/subreddit/leave", leaveSubred)
 	// Client Done... router.GET("/subreddit/post", postSubred)
-	// Done... outer.POST("/subreddit/post/comment", commentSubred)
+	// Client Done... router.GET("/subreddit/post/comment", commentSubred)
 	// Done... router.POST("/subreddit/feed", feedSubred)
 	// // router.GET("/subreddit/listusers", addUser)
 	// router.POST("/subreddit/post/upvote", upvotePost)

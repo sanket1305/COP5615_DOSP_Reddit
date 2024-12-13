@@ -48,6 +48,14 @@ func main() {
 
 	fmt.Printf("%s\n", response.Message)
 
+	// Comment in subreddit
+	response, err = client.CommentInSubreddit(username, "USA", "post1", "No comments please!!!")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s\n", response.Message)
+
 	// Leave subreddit
 	response, err = client.LeaveSubreddit(username, "USA")
 	if err != nil {
