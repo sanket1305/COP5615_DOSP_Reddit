@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 const BaseUrl = "http://localhost:8080/"
@@ -18,6 +19,10 @@ func NewClient(baseUrl string, httpClient *http.Client) *Client {
 		baseUrl:    baseUrl,
 		httpClient: httpClient,
 	}
+}
+
+func Delay() {
+	time.Sleep(5 * time.Second)
 }
 
 type DisplayMessages struct {
