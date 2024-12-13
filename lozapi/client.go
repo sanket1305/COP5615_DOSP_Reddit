@@ -268,3 +268,50 @@ func (c *Client) GetListOfAvailableSubreddits() (*Arr, error) {
 	return &arr, nil
 }
 
+
+func (c *Client) GetListOfAvailableUsers() (*Arr, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"user/list", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var arr Arr
+	if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
+		return nil, fmt.Errorf("failed to read http response: %v", err)
+	}
+
+	return &arr, nil
+}
+
+
+func (c *Client) CheckInbox(username string) (*Arr, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"user/inbox", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+	}
+
+	reqUrl := req.URL
+	queryParams := req.URL.Query()
+	queryParams.Set("username", username)
+	reqUrl.RawQuery = queryParams.Encode()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var arr Arr
+	if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
+		return nil, fmt.Errorf("failed to read http response: %v", err)
+	}
+
+	return &arr, nil
+}
+

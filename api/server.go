@@ -44,6 +44,8 @@ type CreateSubreddit struct {
 
 type GetSubredditList struct {}
 
+type GetUserList struct {}
+
 type List struct {
 	Arr 	[]string
 }
@@ -107,6 +109,11 @@ type MakeComment struct {
 
 type DisplayComments struct {
 	PostName string
+}
+
+type DisplayMessages struct {
+	User string
+	Conversation map[string][][]string
 }
 
 type GetFeed struct {
@@ -376,6 +383,17 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		response := &Response{Message: "Registration Successful!!! Your username is " + string(msg.Username)}
 		ctx.Respond(response) // Respond back to the sender
 	
+	case *GetUserList:
+		arr := []string{}
+
+		for userId, userAdd := range state.users {
+			_ = userAdd
+			arr = append(arr, userId)
+		}
+
+		response := &List{Arr: arr}
+		ctx.Respond(response) // Respond back to the sender
+	
 	case *CreateSubreddit:
 		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name, engine: ctx.Self()} })
 		subredditPID := ctx.Spawn(subredditProps)
@@ -456,6 +474,26 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			value = append(value, newMessage)
 			state.msgs[key] = value
 		}
+	
+	case *DisplayMessages:
+		user := msg.User
+		result := make(map[string][][]string)
+
+		for key, conversation := range state.msgs {
+			var otherUser string
+			if key[0] == user {
+				otherUser = key[1]
+			} else if key[1] == user {
+				otherUser = key[0]
+			} else {
+				continue // Skip if neither part of the key matches the user
+			}
+
+			result[otherUser] = conversation
+		}
+
+		response := &DisplayMessages{User: user, Conversation: result}
+		ctx.Respond(response)
 	
 	case *MakeComment:
 		if subredditPID, ok := state.subreddits[msg.Subreddit]; ok {
@@ -597,6 +635,32 @@ func main() {
 		switch response := result.(type) {
 		case *Response:
 			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
+	})
+
+	// API to get all feeds from subreddit
+	router.GET("/user/list", func(c *gin.Context) {
+		// no query params for this request
+
+		future := rootContext.RequestFuture(enginePID, &GetUserList{}, 5*time.Second)
+
+		result, err := future.Result()
+		if err != nil {
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
+		}
+
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		case *List:
+			fmt.Println("Received response from actor:", response.Arr)
 			c.JSON(http.StatusOK, response)
 		default:
 			fmt.Printf("Unexpected response type: %T\n", result)
@@ -796,19 +860,46 @@ func main() {
 		}
 	})
 
+	// API to get all feeds from subreddit
+	router.GET("/user/inbox", func(c *gin.Context) {
+		// req should contain {username: string}
+		userName := c.Query("username")
+
+		future := rootContext.RequestFuture(enginePID, &DisplayMessages{User: userName}, 5*time.Second)
+
+		result, err := future.Result()
+		if err != nil {
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
+		}
+
+		switch response := result.(type) {
+		case *DisplayMessages:
+			fmt.Println("Received response from actor:", response.Conversation)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
+	})
+
 	// Client Done... router.GET("/user/register")
-    // router.POST("/user/karma", getUserKarma)
-	// router.POST("/user/messaging", sendMessage)
-	// // router.GET("/user/listsubeddits", addUser)
-	// Client Done... router.GET("/subreddit/create", createSubred)
-	// Client Done... router.GET("/subreddit/join", joinSubred)
-	// Client Done... router.GET("/subreddit/leave", leaveSubred)
-	// Client Done... router.GET("/subreddit/post", postSubred)
-	// Client Done... router.GET("/subreddit/post/comment", commentSubred)
-	// Client Done... router.GET("/subreddit/feed", feedSubred)
-	// // router.GET("/subreddit/listusers", addUser)
-	// router.POST("/subreddit/post/upvote", upvotePost)
-	// router.POST("/subreddit/post/downvote", downvotePost)
+	// Client Done... router.GET("/user/list")
+    // router.POST("/user/karma")
+	// router.GET("/user/inbox")
+	// router.GET("/user/sendmessage")
+	// // router.GET("/user/listsubeddits")
+	// Client Done... router.GET("/subreddit/create")
+	// Client Done... router.GET("/subreddit/join")
+	// Client Done... router.GET("/subreddit/leave")
+	// Client Done... router.GET("/subreddit/post")
+	// Client Done... router.GET("/subreddit/post/comment")
+	// Client Done... router.GET("/subreddit/feed")
+	// Client Done... router.GET("/subreddit/list")
+	// // router.GET("/subreddit/listusers")
+	// router.POST("/subreddit/post/upvote")
+	// router.POST("/subreddit/post/downvote")
 
     // Start the server on port 8080
     router.Run("localhost:8080")

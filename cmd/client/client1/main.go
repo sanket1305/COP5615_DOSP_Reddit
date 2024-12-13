@@ -137,6 +137,13 @@ func main() {
 	}
 
 	// 10. get message (by now this should have received some message from client2 as it sends msg to all availble clients)
+	response_inbox, err_inbox := client.CheckInbox("user1")
+	if err_inbox != nil {
+		log.Fatal(err_inbox)
+	}
+
+	fmt.Printf("%v\n", response_inbox)
+
 
 	// 11. respond to message
 	
@@ -156,7 +163,19 @@ func main() {
 		}
 	}
 
-	// 13. get member list from other subreddit
+	// 13. get user list
+	response_slice, err_slice = client.GetListOfAvailableUsers()
+	if err_slice != nil {
+		log.Fatal(err_slice)
+	}
+
+	if len(response_slice.Arr) == 0 {
+		fmt.Println("No users available at the moment. You can be first one though :)")
+	} else {
+		for _, subre := range response_slice.Arr {
+			fmt.Printf("%+v\n", subre)
+		}
+	}
 
 	// 14. get messages
 
