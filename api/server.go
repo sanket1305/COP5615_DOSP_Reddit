@@ -369,6 +369,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 	case *PostinSubreddit:
 		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
 			ctx.Send(subredditPID, &PostinSubreddit{Content: msg.Content, UserID: msg.UserID})
+
+			response := &Response{Message: "Post successful in subreddit " + msg.SubredditName}
+			ctx.Respond(response) // Respond back to the sender
 		} else {
 			fmt.Printf("Subreddit %s not found. from EngineActor via PostinSubreddit\n", msg.SubredditName)
 		}
@@ -601,29 +604,31 @@ func main() {
 		}
 	})
 
+	// API to post in a subreddit
 	router.GET("/subreddit/post", func(c *gin.Context) {
-		// req should contain {subredditname: string}
+		// req should contain {subredditname: string, username: string, content: string}
 		subredditName := c.Query("subredditname")
 		userName := c.Query("username")
 		content := c.Query("content")
 
-		fmt.Println(subredditName)
-		fmt.Println(userName)
-		fmt.Println(content)
+		// rootContext.Send(enginePID, &PostinSubreddit{UserID: userName, SubredditName: subredditName, Content: content})
+		future := rootContext.RequestFuture(enginePID, &PostinSubreddit{UserID: userName, SubredditName: subredditName, Content: content}, 5*time.Second)
 
-		rootContext.Send(enginePID, &PostinSubreddit{UserID: userName, SubredditName: subredditName, Content: content})
-
-		response := Response{
-			Message: "post made in subreddit",
-		}
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
+		result, err := future.Result()
 		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
 		}
 
-		c.JSON(http.StatusOK, jsonData)
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
 	})
 
 	router.GET("/subreddit/post/comment", func(c *gin.Context) {
@@ -681,7 +686,7 @@ func main() {
 	// Client Done... router.GET("/subreddit/create", createSubred)
 	// Client Done... router.GET("/subreddit/join", joinSubred)
 	// Client Done... router.GET("/subreddit/leave", leaveSubred)
-	// Done... router.POST("/subreddit/post", postSubred)
+	// Client Done... router.GET("/subreddit/post", postSubred)
 	// Done... outer.POST("/subreddit/post/comment", commentSubred)
 	// Done... router.POST("/subreddit/feed", feedSubred)
 	// // router.GET("/subreddit/listusers", addUser)

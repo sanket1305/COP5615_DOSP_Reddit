@@ -122,3 +122,31 @@ func (c *Client) LeaveSubreddit(userName string, subredditName string) (*Message
 
 	return &message, nil
 }
+
+
+func (c *Client) PostInSubreddit(userName string, subredditName string, content string) (*Message, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"subreddit/post", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+	}
+
+	reqUrl := req.URL
+	queryParams := req.URL.Query()
+	queryParams.Set("subredditname", subredditName)
+	queryParams.Set("username", userName)
+	queryParams.Set("content", content)
+	reqUrl.RawQuery = queryParams.Encode()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var message Message
+	if err := json.NewDecoder(resp.Body).Decode(&message); err != nil {
+		return nil, fmt.Errorf("failed to read http response: %v", err)
+	}
+
+	return &message, nil
+}

@@ -40,6 +40,14 @@ func main() {
 
 	fmt.Printf("%s\n", response.Message)
 
+	// Post in subreddit
+	response, err = client.PostInSubreddit(username, "USA", "falana falana")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s\n", response.Message)
+
 	// Leave subreddit
 	response, err = client.LeaveSubreddit(username, "USA")
 	if err != nil {
