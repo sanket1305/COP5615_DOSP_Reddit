@@ -481,17 +481,7 @@ func main() {
 			Message: username + " is registered",
 		}
 
-		fmt.Println(response)
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
-		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
-		}
-
-		fmt.Println(string(jsonData))
-
-		c.JSON(http.StatusOK, jsonData)
+		c.JSON(http.StatusOK, response)
 	})
 
 	router.GET("/", func(c *gin.Context) {

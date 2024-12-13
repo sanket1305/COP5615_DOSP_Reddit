@@ -19,7 +19,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, monster := range response.Data {
-		fmt.Printf("%+v\n", monster)
-	}
+	// for _, monster := range response.Data {
+		fmt.Printf("%+v\n", response.Data)
+	// }
 }
