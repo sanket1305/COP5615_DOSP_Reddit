@@ -337,7 +337,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		subredditPID := ctx.Spawn(subredditProps)
 		state.subreddits[msg.Name] = subredditPID
 		// fmt.Printf("Subreddit %s created.\n", msg.Name)
-	
+		response := &Response{Message: "Created subreddit " + string(msg.Name)}
+		ctx.Respond(response) // Respond back to the sender
+		
 	case *JoinSubreddit:
 		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
 			user := state.users[msg.UserID]
@@ -473,7 +475,27 @@ func main() {
     router := gin.Default()
 
 	// Define routes
+	// API to view users and subreddits count on server
+	router.GET("/", func(c *gin.Context) {
+		rootContext.Send(enginePID, &Debug{})
+
+		response := Response{
+			Message: "deubg called",
+		}
+	
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
+	})
+
+	// API to register new user and display it's user ID
     router.GET("/user/register", func(c *gin.Context) {
+		// no params required for this request
+
 		userCount += 1
 		username := "user" + strconv.Itoa(userCount)
 		// rootContext.Send(enginePID, &RegisterUser{Username: username})
@@ -496,39 +518,29 @@ func main() {
 		}
 	})
 
-	router.GET("/", func(c *gin.Context) {
-		rootContext.Send(enginePID, &Debug{})
-
-		response := Response{
-			Message: "deubg called",
-		}
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
-		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
-		}
-
-		c.JSON(http.StatusOK, jsonData)
-	})
-
+	// API to create new subreddit and display msg to user
 	router.GET("/subreddit/create", func(c *gin.Context) {
 		// req should contain {subredditname: string}
 		subredditName := c.Query("subredditname")
 
-		rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
+		// rootContext.Send(enginePID, &CreateSubreddit{Name: subredditName})
+		future := rootContext.RequestFuture(enginePID, &CreateSubreddit{Name: subredditName}, 5*time.Second)
 
-		response := Response{
-			Message: "subreddit created",
-		}
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
+		result, err := future.Result()
 		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
 		}
 
-		c.JSON(http.StatusOK, jsonData)
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
 	})
 
 	router.GET("/subreddit/join", func(c *gin.Context) {
@@ -651,11 +663,11 @@ func main() {
 		c.JSON(http.StatusOK, jsonData)
 	})
 
-	// Done... router.GET("/user/register")
+	// Client Done... router.GET("/user/register")
     // router.POST("/user/karma", getUserKarma)
 	// router.POST("/user/messaging", sendMessage)
 	// // router.GET("/user/listsubeddits", addUser)
-	// Done... router.POST("/subreddit/create", createSubred)
+	// Client Done... router.GET("/subreddit/create", createSubred)
 	// Done... router.POST("/subreddit/join", joinSubred)
 	// Done... router.POST("/subreddit/leave", leaveSubred)
 	// Done... router.POST("/subreddit/post", postSubred)
