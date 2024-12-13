@@ -16,7 +16,7 @@ func main() {
 	})
 
 	// register user
-	response, err := client.GetMonsters()
+	response, err := client.RegisterUser()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,7 +24,7 @@ func main() {
 	fmt.Printf("%s\n", response.Message)
 
 	// create subreddit
-	response, err = client.AgainMonsters("USA")
+	response, err = client.CreateSubreddit("USA")
 	if err != nil {
 		log.Fatal(err)
 	}

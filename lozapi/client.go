@@ -20,34 +20,34 @@ func NewClient(baseUrl string, httpClient *http.Client) *Client {
 	}
 }
 
-type Monster struct {
+type Message struct {
 	Message string `json:"Message"` // Ensure field names match JSON keys
 }
 
-func (c *Client) GetMonsters() (*Monster, error) {
+func (c *Client) RegisterUser() (*Message, error) {
 	req, err := http.NewRequest("GET", c.baseUrl+"user/register", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create monsters request: %v", err)
+		return nil, fmt.Errorf("failed to create reigtser user request: %v", err)
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to submit monsters http request: %v", err)
+		return nil, fmt.Errorf("failed to submit register user http request: %v", err)
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var monster Monster
+	var monster Message
 	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal monsters http response: %v", err)
+		return nil, fmt.Errorf("failed to read http response: %v", err)
 	}
 
 	return &monster, nil
 }
 
-func (c *Client) AgainMonsters(subredditName string) (*Monster, error) {
+func (c *Client) CreateSubreddit(subredditName string) (*Message, error) {
 	req, err := http.NewRequest("GET", c.baseUrl+"subreddit/create", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create monsters request: %v", err)
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
 	}
 
 	reqUrl := req.URL
@@ -57,13 +57,13 @@ func (c *Client) AgainMonsters(subredditName string) (*Monster, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to submit monsters http request: %v", err)
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var monster Monster
+	var monster Message
 	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal monsters http response: %v", err)
+		return nil, fmt.Errorf("failed to read http response: %v", err)
 	}
 
 	return &monster, nil
