@@ -20,6 +20,10 @@ func NewClient(baseUrl string, httpClient *http.Client) *Client {
 	}
 }
 
+type Arr struct {
+	Arr []string
+}
+
 type Message struct {
 	Message string `json:"Message"` // Ensure field names match JSON keys
 }
@@ -204,5 +208,26 @@ func (c *Client) GetFeed(subredditName string) (*Message, error) {
 	}
 
 	return &message, nil
+}
+
+
+func (c *Client) GetListOfAvailableSubreddits() (*Arr, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"subreddit/list", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var arr Arr
+	if err := json.NewDecoder(resp.Body).Decode(&arr); err != nil {
+		return nil, fmt.Errorf("failed to read http response: %v", err)
+	}
+
+	return &arr, nil
 }
 

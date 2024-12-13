@@ -9,6 +9,22 @@ import (
 	"reddit_client_server/lozapi"
 )
 
+// requests sequence
+
+// 1. register
+// 2. getListOfsubreddits
+// 3. createSubreddit
+// 4. JoinSubreddit
+// 5. getUsers
+// 6. sendmessage to each other user
+// 7. getsubrreddit
+// 8. getfeed
+// 9. makepost
+// 10. getsubrreddit
+// 11. getfeed
+// 12. makecomment
+// 13. getmessages
+
 func main() {
 	// create instance of client to call different APIs
 	client := lozapi.NewClient(lozapi.BaseUrl, &http.Client{

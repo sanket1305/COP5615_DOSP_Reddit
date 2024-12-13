@@ -42,6 +42,12 @@ type CreateSubreddit struct {
 	Name string
 }
 
+type GetSubredditList struct {}
+
+type List struct {
+	Arr 	[]string
+}
+
 type JoinSubreddit struct {
 	UserID       	string
 	SubredditName 	string
@@ -338,6 +344,17 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		state.subreddits[msg.Name] = subredditPID
 		// fmt.Printf("Subreddit %s created.\n", msg.Name)
 		response := &Response{Message: "Created subreddit " + string(msg.Name)}
+		ctx.Respond(response) // Respond back to the sender
+	
+	case *GetSubredditList:
+		arr := []string{}
+
+		for subredId, subredAdd := range state.subreddits {
+			_ = subredAdd
+			arr = append(arr, subredId)
+		}
+
+		response := &List{Arr: arr}
 		ctx.Respond(response) // Respond back to the sender
 		
 	case *JoinSubreddit:
@@ -683,6 +700,32 @@ func main() {
 		switch response := result.(type) {
 		case *Response:
 			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
+	})
+
+	// API to get all feeds from subreddit
+	router.GET("/subreddit/list", func(c *gin.Context) {
+		// no query params for this request
+
+		future := rootContext.RequestFuture(enginePID, &GetSubredditList{}, 5*time.Second)
+
+		result, err := future.Result()
+		if err != nil {
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
+		}
+
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		case *List:
+			fmt.Println("Received response from actor:", response.Arr)
 			c.JSON(http.StatusOK, response)
 		default:
 			fmt.Printf("Unexpected response type: %T\n", result)
