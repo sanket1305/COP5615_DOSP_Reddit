@@ -30,7 +30,7 @@ type PostinSubreddit struct{
 }
 
 type ResponsePosts struct {
-	posts []PostinSubreddit
+	Posts []PostinSubreddit
 }
 
 type Arr struct {
@@ -224,9 +224,9 @@ func (c *Client) GetFeed(subredditName string) error {
 
 	// now first check if repsonse type is ResponsePosts
 	var responsePosts ResponsePosts
-	if err := json.Unmarshal(rawResponse, &responsePosts); err == nil && len(responsePosts.posts) > 0 {
-		fmt.Println("Received posts:")
-		for _, post := range responsePosts.posts {
+	if err := json.Unmarshal(rawResponse, &responsePosts); err == nil {
+		fmt.Println("Received Posts:")
+		for _, post := range responsePosts.Posts {
 			fmt.Printf("ID: %s, Content: %s\n", post.PostID, post.Content)
 		}
 		return nil

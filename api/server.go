@@ -68,7 +68,7 @@ type PostinSubreddit struct{
 }
 
 type ResponsePosts struct {
-	posts []PostinSubreddit
+	Posts []PostinSubreddit
 }
 
 type Upvote struct {
@@ -242,7 +242,7 @@ func (state *PostActor) Receive(ctx actor.Context) {
 type SubredditActor struct {
 	Name  string
 	numPosts int
-	Posts map[string]*actor.PID // List of posts in the subreddit.
+	Posts map[string]*actor.PID // List of Posts in the subreddit.
 	UserList []string
 	engine *actor.PID
 }
@@ -341,7 +341,7 @@ func (state *SubredditActor) Receive(ctx actor.Context) {   // , rootContext *ac
 			}
 		}
 
-		resp := &ResponsePosts{posts: arr}
+		resp := &ResponsePosts{Posts: arr}
 
 		ctx.Respond(resp) // Respond back to the original sender (REST API)
 	}
@@ -759,10 +759,11 @@ func main() {
 			c.JSON(http.StatusOK, response)
 		case *ResponsePosts:
 			// this is actual response format expected for this request
-			fmt.Println("Received response from engine actor:", response.posts)
-			new_Response := &ResponsePosts{posts: response.posts}
-			fmt.Println("Received response from engine actor:", new_Response.posts)
+			fmt.Println("Received response from engine actor:", response.Posts)
+			new_Response := &ResponsePosts{Posts: response.Posts}
+			fmt.Println("Received response from engine actor:", new_Response.Posts)
 			c.JSON(http.StatusOK, response)
+			fmt.Println(response)
 		default:
 			fmt.Printf("Unexpected response type: %T\n", result)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})

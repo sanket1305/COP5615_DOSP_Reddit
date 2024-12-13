@@ -104,24 +104,14 @@ func main() {
 	}
 
 	// 7. getPosts (from any of the subreddits we have got above)
+	// no response will be taken here, 
+	// output will be printed inside the method GetFeed()
+	err_list_post := client.GetFeed("USA")
+	if err_list_post != nil {
+		log.Fatal(err_list_post)
+	}
 
-	// 8. add comment (for above post)
-
-	// 9. repeat 6 and 7
-
-	// 10. get message (by now this should have received some message from client2 as it sends msg to all availble clients)
-
-	// 11. respond to message
-	
-	// 12. repeat 6
-
-	// 13. get member list from other subreddit
-
-	// 14. repeat 6 and 7
-
-	// 15. get messages
-
-	// Comment in subreddit
+	// 8. add comment (for above post) -- post is hardcoded right now
 	response, err = client.CommentInSubreddit(username, "USA", "post1", "No comments please!!!")
 	if err != nil {
 		log.Fatal(err)
@@ -129,15 +119,55 @@ func main() {
 
 	fmt.Printf("%s\n", response.Message)
 
-	// get all posts in subreddit
-	err_list_post := client.GetFeed("USA")
+	// 9. repeat 6 and 7
+	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
+	// this code is same code in 2.
+	response_slice, err_slice = client.GetListOfAvailableSubreddits()
+	if err_slice != nil {
+		log.Fatal(err_slice)
+	}
+
+	if len(response_slice.Arr) == 0 {
+		fmt.Println("No subreddits available at the moment. You can create a new one though :)")
+	} else {
+		for _, subre := range response_slice.Arr {
+			fmt.Printf("%+v\n", subre)
+		}
+	}
+
+	// 7. getPosts (from any of the subreddits we have got above)
+	// no response will be taken here, 
+	// output will be printed inside the method GetFeed()
+	err_list_post = client.GetFeed("USA")
 	if err_list_post != nil {
 		log.Fatal(err_list_post)
 	}
 
-	// fmt.Printf("%v\n", response_list_post)
+	// 10. get message (by now this should have received some message from client2 as it sends msg to all availble clients)
 
-	// Leave subreddit
+	// 11. respond to message
+	
+	// 12. repeat 6
+	// 6. getListofsubreddits (by now other clients must have added some more reddits and posts in them)
+	// this code is same code in 2.
+	response_slice, err_slice = client.GetListOfAvailableSubreddits()
+	if err_slice != nil {
+		log.Fatal(err_slice)
+	}
+
+	if len(response_slice.Arr) == 0 {
+		fmt.Println("No subreddits available at the moment. You can create a new one though :)")
+	} else {
+		for _, subre := range response_slice.Arr {
+			fmt.Printf("%+v\n", subre)
+		}
+	}
+
+	// 13. get member list from other subreddit
+
+	// 14. get messages
+
+	// 15. leave subreddit
 	response, err = client.LeaveSubreddit(username, "USA")
 	if err != nil {
 		log.Fatal(err)
