@@ -30,4 +30,12 @@ func main() {
 	}
 
 	fmt.Printf("%s\n", response.Message)
+
+	// join subreddit
+	response, err = client.JoinSubreddit("user1", "USA")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s\n", response.Message)
 }

@@ -68,3 +68,30 @@ func (c *Client) CreateSubreddit(subredditName string) (*Message, error) {
 
 	return &monster, nil
 }
+
+
+func (c *Client) JoinSubreddit(userName string, subredditName string) (*Message, error) {
+	req, err := http.NewRequest("GET", c.baseUrl+"subreddit/join", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create subreddit request: %v", err)
+	}
+
+	reqUrl := req.URL
+	queryParams := req.URL.Query()
+	queryParams.Set("subredditname", subredditName)
+	queryParams.Set("username", userName)
+	reqUrl.RawQuery = queryParams.Encode()
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to submit subreddit http request: %v", err)
+	}
+	defer resp.Body.Close() // Ensure the body is closed
+
+	var monster Message
+	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
+		return nil, fmt.Errorf("failed to read http response: %v", err)
+	}
+
+	return &monster, nil
+}

@@ -346,6 +346,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 			ctx.Send(subredditPID, &JoinSubreddit{UserID: msg.UserID})
 			ctx.Send(user, &JoinSubreddit{SubredditName: msg.SubredditName})
 			// fmt.Printf("User %s joined subreddit %s.\n", msg.UserID, msg.SubredditName)
+
+			response := &Response{Message: "User " + msg.UserID + " has joined subreddit " + msg.SubredditName}
+			ctx.Respond(response) // Respond back to the sender
 		} else {
 			fmt.Printf("Subreddit %s not found. from EngineActor via JoinSubreddit\n", msg.SubredditName)
 		}
@@ -543,27 +546,30 @@ func main() {
 		}
 	})
 
+	// API to join subreddit
 	router.GET("/subreddit/join", func(c *gin.Context) {
-		// req should contain {subredditname: string}
+		// req should contain {subredditname: string, username: string}
 		subredditName := c.Query("subredditname")
 		userName := c.Query("username")
 
-		// fmt.Println(subredditName)
-		// fmt.Println(userName)
+		// rootContext.Send(enginePID, &JoinSubreddit{UserID: userName, SubredditName: subredditName})	
+		future := rootContext.RequestFuture(enginePID, &JoinSubreddit{UserID: userName, SubredditName: subredditName}, 5*time.Second)
 
-		rootContext.Send(enginePID, &JoinSubreddit{UserID: userName, SubredditName: subredditName})	
-
-		response := Response{
-			Message: "subreddit joined",
-		}
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
+		result, err := future.Result()
 		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
 		}
 
-		c.JSON(http.StatusOK, jsonData)
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
 	})
 
 	router.GET("/subreddit/leave", func(c *gin.Context) {
