@@ -5,7 +5,7 @@ files
     "server.go" - this will hold all the REST APIs (along with engine code) and will act as server
 
 development
-    stage1:
+    stage1: DONE
         build the "server.go"
             reddit engine
             APIs
