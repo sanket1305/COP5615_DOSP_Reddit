@@ -19,5 +19,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("Message: %s\n", response.Message)
+	fmt.Printf("%s\n", response.Message)
 }

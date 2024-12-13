@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	// "time"
+	"time"
 	"encoding/json"
 	"strconv"
 	"log"
@@ -329,6 +329,8 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		userPID := ctx.Spawn(userProps)
 		state.users[msg.Username] = userPID
 		// fmt.Printf("User %s registered.\n", msg.Username)
+		response := &Response{Message: "Registration Successful!!! Your username is " + string(msg.Username)}
+		ctx.Respond(response) // Respond back to the sender
 	
 	case *CreateSubreddit:
 		subredditProps := actor.PropsFromProducer(func() actor.Actor { return &SubredditActor{Name: msg.Name, engine: ctx.Self()} })
@@ -474,14 +476,24 @@ func main() {
     router.GET("/user/register", func(c *gin.Context) {
 		userCount += 1
 		username := "user" + strconv.Itoa(userCount)
-		rootContext.Send(enginePID, &RegisterUser{Username: username})
+		// rootContext.Send(enginePID, &RegisterUser{Username: username})
+		future := rootContext.RequestFuture(enginePID, &RegisterUser{Username: username}, 5*time.Second)
 
-		// Create an instance of the Response struct
-		response := Response{
-			Message: username + " is registered",
+		result, err := future.Result()
+		if err != nil {
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
 		}
 
-		c.JSON(http.StatusOK, response)
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
 	})
 
 	router.GET("/", func(c *gin.Context) {
