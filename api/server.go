@@ -553,8 +553,8 @@ func main() {
 		subredditName := c.Query("subredditname")
 		userName := c.Query("username")
 
-		fmt.Println(subredditName)
-		fmt.Println(userName)
+		// fmt.Println(subredditName)
+		// fmt.Println(userName)
 
 		rootContext.Send(enginePID, &LeaveSubreddit{UserID: userName, SubredditName: subredditName})
 
@@ -571,18 +571,92 @@ func main() {
 		c.JSON(http.StatusOK, jsonData)
 	})
 
+	router.GET("/subreddit/post", func(c *gin.Context) {
+		// req should contain {subredditname: string}
+		subredditName := c.Query("subredditname")
+		userName := c.Query("username")
+		content := c.Query("content")
+
+		fmt.Println(subredditName)
+		fmt.Println(userName)
+		fmt.Println(content)
+
+		rootContext.Send(enginePID, &PostinSubreddit{UserID: userName, SubredditName: subredditName, Content: content})
+
+		response := Response{
+			Message: "post made in subreddit",
+		}
+	
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
+	})
+
+	router.GET("/subreddit/post/comment", func(c *gin.Context) {
+		// req should contain {subredditname: string}
+		subredditName := c.Query("subredditname")
+		userName := c.Query("username")
+		post := c.Query("post")
+		commentTxt := c.Query("comment")
+
+		fmt.Println(subredditName)
+		fmt.Println(userName)
+		fmt.Println(post)
+		fmt.Println(commentTxt)
+
+		rootContext.Send(enginePID, &MakeComment{User: userName, Subreddit: subredditName, Post: post, CommentTxt: commentTxt})
+
+		response := Response{
+			Message: "post made in subreddit",
+		}
+	
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
+	})
+
+	router.GET("/subreddit/feed", func(c *gin.Context) {
+		// req should contain {subredditname: string}
+		subredditName := c.Query("subredditname")
+
+		fmt.Println(subredditName)
+
+		rootContext.Send(enginePID, &GetFeed{SubredditName: subredditName})
+
+		response := Response{
+			Message: "post made in subreddit",
+		}
+	
+		// Marshal the struct to JSON
+		jsonData, err := json.Marshal(response)
+		if err != nil {
+			log.Fatalf("Error marshalling JSON: %v", err)
+		}
+
+		c.JSON(http.StatusOK, jsonData)
+	})
+
+	// Done... router.GET("/user/register")
     // router.POST("/user/karma", getUserKarma)
 	// router.POST("/user/messaging", sendMessage)
 	// // router.GET("/user/listsubeddits", addUser)
 	// Done... router.POST("/subreddit/create", createSubred)
 	// Done... router.POST("/subreddit/join", joinSubred)
 	// Done... router.POST("/subreddit/leave", leaveSubred)
-	// router.POST("/subreddit/post", postSubred)
-	// router.POST("/subreddit/comment", commentSubred)
-	// router.POST("/subreddit/feed", feedSubred)
+	// Done... router.POST("/subreddit/post", postSubred)
+	// Done... outer.POST("/subreddit/post/comment", commentSubred)
+	// Done... router.POST("/subreddit/feed", feedSubred)
 	// // router.GET("/subreddit/listusers", addUser)
-	// router.POST("/post/upvote", upvotePost)
-	// router.POST("/post/downvote", downvotePost)
+	// router.POST("/subreddit/post/upvote", upvotePost)
+	// router.POST("/subreddit/post/downvote", downvotePost)
 
     // Start the server on port 8080
     router.Run("localhost:8080")
