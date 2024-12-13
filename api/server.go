@@ -436,6 +436,9 @@ func (state *EngineActor) Receive(ctx actor.Context) {
 		if subredditPID, ok := state.subreddits[msg.SubredditName]; ok {
 			ctx.Send(subredditPID, &GetFeed{SubredditName: msg.SubredditName})
 			fmt.Printf("Fetching feed for subreddit %s.\n", msg.SubredditName)
+			
+			response := &Response{Message: "Here is your feed"}
+			ctx.Respond(response) // Respond back to the sender
 		} else {
 			fmt.Printf("Subreddit %s not found. from EngineActor via GetFeed\n", msg.SubredditName)
 		}
@@ -662,25 +665,29 @@ func main() {
 		}
 	})
 
+	// API to get all feeds from subreddit
 	router.GET("/subreddit/feed", func(c *gin.Context) {
 		// req should contain {subredditname: string}
 		subredditName := c.Query("subredditname")
 
-		fmt.Println(subredditName)
+		// rootContext.Send(enginePID, &GetFeed{SubredditName: subredditName})
+		future := rootContext.RequestFuture(enginePID, &GetFeed{SubredditName: subredditName}, 5*time.Second)
 
-		rootContext.Send(enginePID, &GetFeed{SubredditName: subredditName})
-
-		response := Response{
-			Message: "post made in subreddit",
-		}
-	
-		// Marshal the struct to JSON
-		jsonData, err := json.Marshal(response)
+		result, err := future.Result()
 		if err != nil {
-			log.Fatalf("Error marshalling JSON: %v", err)
+			fmt.Println("Error while waiting for actor response:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get response from actor"})
+			return
 		}
 
-		c.JSON(http.StatusOK, jsonData)
+		switch response := result.(type) {
+		case *Response:
+			fmt.Println("Received response from actor:", response.Message)
+			c.JSON(http.StatusOK, response)
+		default:
+			fmt.Printf("Unexpected response type: %T\n", result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Unexpected response type"})
+		}
 	})
 
 	// Client Done... router.GET("/user/register")
@@ -692,7 +699,7 @@ func main() {
 	// Client Done... router.GET("/subreddit/leave", leaveSubred)
 	// Client Done... router.GET("/subreddit/post", postSubred)
 	// Client Done... router.GET("/subreddit/post/comment", commentSubred)
-	// Done... router.POST("/subreddit/feed", feedSubred)
+	// Client Done (return all feeds is left)... router.GET("/subreddit/feed", feedSubred)
 	// // router.GET("/subreddit/listusers", addUser)
 	// router.POST("/subreddit/post/upvote", upvotePost)
 	// router.POST("/subreddit/post/downvote", downvotePost)

@@ -56,6 +56,14 @@ func main() {
 
 	fmt.Printf("%s\n", response.Message)
 
+	// get all posts in subreddit
+	response, err = client.GetFeed("USA")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%s\n", response.Message)
+
 	// Leave subreddit
 	response, err = client.LeaveSubreddit(username, "USA")
 	if err != nil {
