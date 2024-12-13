@@ -36,12 +36,12 @@ func (c *Client) RegisterUser() (*Message, error) {
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var monster Message
-	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
+	var message Message
+	if err := json.NewDecoder(resp.Body).Decode(&message); err != nil {
 		return nil, fmt.Errorf("failed to read http response: %v", err)
 	}
 
-	return &monster, nil
+	return &message, nil
 }
 
 func (c *Client) CreateSubreddit(subredditName string) (*Message, error) {
@@ -61,12 +61,12 @@ func (c *Client) CreateSubreddit(subredditName string) (*Message, error) {
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var monster Message
-	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
+	var message Message
+	if err := json.NewDecoder(resp.Body).Decode(&message); err != nil {
 		return nil, fmt.Errorf("failed to read http response: %v", err)
 	}
 
-	return &monster, nil
+	return &message, nil
 }
 
 
@@ -88,10 +88,10 @@ func (c *Client) JoinSubreddit(userName string, subredditName string) (*Message,
 	}
 	defer resp.Body.Close() // Ensure the body is closed
 
-	var monster Message
-	if err := json.NewDecoder(resp.Body).Decode(&monster); err != nil {
+	var message Message
+	if err := json.NewDecoder(resp.Body).Decode(&message); err != nil {
 		return nil, fmt.Errorf("failed to read http response: %v", err)
 	}
 
-	return &monster, nil
+	return &message, nil
 }
