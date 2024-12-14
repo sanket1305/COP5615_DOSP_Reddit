@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	// "math/rand"
+	"math/rand"
 	"time"
 
 	"reddit_client_server/lozapi"
@@ -31,7 +31,6 @@ func main() {
 	// so that we can pass this values to subsequent api calls
 	userName := ""
 	subredditName := ""
-	// recipient := ""
 
 	// create instance of client to call different APIs
 	client := lozapi.NewClient(lozapi.BaseUrl, &http.Client{
@@ -58,6 +57,7 @@ func main() {
 	if len(response_slice.Arr) == 0 {
 		fmt.Println("No subreddits available at the moment. You can create a new one though :)")
 	} else {
+		fmt.Println("Available subreddits are :")
 		for _, subre := range response_slice.Arr {
 			fmt.Printf("%+v\n", subre)
 		}
@@ -65,8 +65,8 @@ func main() {
 
 	lozapi.Delay()
 
-	// 3. create subreddit "usa"
-	subredditName = "usa"
+	// 3. create subreddit "india"
+	subredditName = "india"
 	response, err = client.CreateSubreddit(subredditName)
 	if err != nil {
 		log.Fatal(err)
@@ -76,7 +76,7 @@ func main() {
 
 	lozapi.Delay()
 
-	// 4. join subreddit "usa"
+	// 4. join subreddit "india"
 	response, err = client.JoinSubreddit(userName, subredditName)
 	if err != nil {
 		log.Fatal(err)
@@ -86,7 +86,8 @@ func main() {
 
 	lozapi.Delay()
 
-	// 5. Post in subreddit "usa"
+	// 5. Post in subreddit "india"
+	fmt.Printf("Making post in subreddit %s\n", subredditName)
 	response, err = client.PostInSubreddit(userName, subredditName, "falana")
 	if err != nil {
 		log.Fatal(err)
@@ -97,7 +98,7 @@ func main() {
 	lozapi.Delay()
 
 	// 6. leave subreddit
-	response, err = client.LeaveSubreddit(userName, "usa")
+	response, err = client.LeaveSubreddit(userName, "india")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -113,9 +114,26 @@ func main() {
 	if len(response_slice.Arr) == 0 {
 		fmt.Println("No subreddits available at the moment. You can create a new one though :)")
 	} else {
+		fmt.Println("Available subreddits are :")
 		for _, subre := range response_slice.Arr {
 			fmt.Printf("%+v\n", subre)
 		}
+		// now we will try to pick some random subreddit
+		// and interact with it in subsequent APIs
+		// Create a new random generator with a seed based on the current time
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		// Generate a random index within the bounds of the slice
+		randomIndex := r.Intn(len(response_slice.Arr))
+
+		// This loop will make sure that the client will go to different subreddit
+		for (subredditName == response_slice.Arr[randomIndex]) {
+			randomIndex = r.Intn(len(response_slice.Arr))
+		}
+
+		// Select the random element from the slice
+		subredditName = response_slice.Arr[randomIndex]
+		fmt.Printf("Now we are looking at subreddit %s\n", subredditName)
 	}
 
 	lozapi.Delay()
@@ -140,7 +158,8 @@ func main() {
 
 	lozapi.Delay()
 
-	// 10. Post in subreddit "usa"
+	// 10. Post in subreddit "india"
+	fmt.Printf("Making post in subreddit %s\n", subredditName)
 	response, err = client.PostInSubreddit(userName, subredditName, "falana")
 	if err != nil {
 		log.Fatal(err)
@@ -159,9 +178,27 @@ func main() {
 	if len(response_slice.Arr) == 0 {
 		fmt.Println("No subreddits available at the moment. You can create a new one though :)")
 	} else {
+		fmt.Println("Available subreddits are :")
 		for _, subre := range response_slice.Arr {
 			fmt.Printf("%+v\n", subre)
 		}
+		// now we will try to pick some random subreddit
+		// and interact with it in subsequent APIs
+		// Create a new random generator with a seed based on the current time
+		r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+		// Generate a random index within the bounds of the slice
+		randomIndex := r.Intn(len(response_slice.Arr))
+
+		// This loop will make sure that the client will go to different subreddit
+		for (subredditName == response_slice.Arr[randomIndex]) {
+			randomIndex = r.Intn(len(response_slice.Arr))
+		}
+
+		// Select the random element from the slice
+		subredditName = response_slice.Arr[randomIndex]
+		fmt.Printf("Now we are looking at subreddit %s\n", subredditName)
+	
 	}
 
 	lozapi.Delay()
@@ -178,6 +215,7 @@ func main() {
 
 	// 13. add comment (for above post) -- post is hardcoded right now
 	// we should now get random post above and make a comment on it
+	fmt.Printf("Adding comment on post post1 in subreddit %s", subredditName)
 	response, err = client.CommentInSubreddit(userName, subredditName, "post1", "I agree with you")
 	if err != nil {
 		log.Fatal(err)
