@@ -76,7 +76,7 @@ The system is designed with a separation of concerns:
 1. Clone this repository:
    ```
    git clone https://github.com/sanket1305/COP5615_DOSP_Reddit.git
-   cd COP5615_DOSP_Reddit
+   cd COP5615_DOSP_Reddit/project4_Reddit_engine
    ```
 
 2. Start the engine and simulator process:
